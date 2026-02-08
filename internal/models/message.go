@@ -16,15 +16,15 @@ const (
 type Message struct {
 	bun.BaseModel `bun:"table:messages,alias:m"`
 
-	ID              int         `bun:",pk,autoincrement" json:""`
+	ID              int         `bun:",pk,autoincrement" json:"id"`
 	ParentMessageID *int        `bun:"" json:"parent_message_id"` // For message threading/replies
-	Content         string      `bun:",notnull"`
-	MessageType     MessageType `bun:",notnull" json:""`
-	ChannelID       int         `bun:",notnull" json:""`
-	SenderID        int         `bun:",notnull" json:""`
-	IsEdited        bool        `bun:",notnull,default:false" json:""`
-	EditedAt        time.Time   `bun:",nullzero,default:current_timestamp" json:""`
-	CreatedAt       time.Time   `bun:",nullzero,default:current_timestamp" json:""`
+	Content         string      `bun:",notnull" json:"content"`
+	MessageType     MessageType `bun:",notnull" json:"message_type"`
+	ChannelID       int         `bun:",notnull" json:"channel_id"`
+	SenderID        int         `bun:",notnull" json:"sender_id"`
+	IsEdited        bool        `bun:",notnull,default:false" json:"is_edited"`
+	EditedAt        time.Time   `bun:",nullzero,default:current_timestamp" json:"edited_at"`
+	CreatedAt       time.Time   `bun:",nullzero,default:current_timestamp" json:"created_at"`
 
 	Sender        *User    `bun:"rel:belongs-to,join:sender_id=id"`
 	Channel       *Channel `bun:"rel:belongs-to,join:channel_id=id"`
