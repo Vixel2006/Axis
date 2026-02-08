@@ -53,6 +53,7 @@ func (cmr *channelMemberRepository) RemoveMemberFromChannel(ctx context.Context,
 }
 
 func (cmr *channelMemberRepository) GetChannelMembers(ctx context.Context, channelID int) ([]models.ChannelMember, error) {
+	log.Debug().Int("channel_id", channelID).Msg("Fetching channel members from database")
 	var members []models.ChannelMember
 	err := cmr.db.NewSelect().
 		Model(&members).
@@ -63,6 +64,7 @@ func (cmr *channelMemberRepository) GetChannelMembers(ctx context.Context, chann
 		log.Error().Err(err).Int("channel_id", channelID).Msg("Failed to get channel members")
 		return nil, err
 	}
+	log.Debug().Int("channel_id", channelID).Int("members_count", len(members)).Msg("Successfully fetched channel members")
 	return members, nil
 }
 

@@ -18,12 +18,14 @@ type ChannelService interface {
 }
 
 type channelService struct {
-	channelRepo repositories.ChannelRepo
+	channelRepo       repositories.ChannelRepo
+	channelMemberRepo repositories.ChannelMemberRepo
 }
 
-func NewChannelService(cr repositories.ChannelRepo) ChannelService {
+func NewChannelService(cr repositories.ChannelRepo, cmr repositories.ChannelMemberRepo) ChannelService {
 	return &channelService{
-		channelRepo: cr,
+		channelRepo:       cr,
+		channelMemberRepo: cmr,
 	}
 }
 
@@ -34,6 +36,17 @@ func (s *channelService) CreateChannel(ctx context.Context, channel *models.Chan
 		return nil, err
 	}
 	log.Info().Int("channel_id", channel.ID).Str("channel_name", channel.Name).Msg("Channel created successfully")
+
+	// Add the creator as a member of the new channel
+	err = s.channelMemberRepo.AddMemberToChannel(ctx, channel.ID, channel.CreatorID)
+	if err != nil {
+		log.Error().Err(err).Int("channel_id", channel.ID).Int("user_id", channel.CreatorID).Msg("Failed to add creator as member to channel")
+		// Decide if this error should prevent channel creation or just be logged
+		// For now, we'll return the error as it's a critical step
+		return nil, err
+	}
+	log.Info().Int("channel_id", channel.ID).Int("user_id", channel.CreatorID).Msg("Creator added to channel members")
+
 	return channel, nil
 }
 

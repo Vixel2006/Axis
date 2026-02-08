@@ -36,6 +36,17 @@ func (s *workspaceService) CreateWorkspace(ctx context.Context, workspace *model
 		return nil, err
 	}
 	log.Info().Str("workspace_name", workspace.Name).Int("workspace_id", workspace.ID).Msg("Workspace created successfully")
+
+	// Add the creator as a member of the new workspace
+	err = s.workspaceMemberRepo.AddMemberToWorkspace(ctx, workspace.ID, workspace.CreatorID, models.Admin)
+	if err != nil {
+		log.Error().Err(err).Int("workspace_id", workspace.ID).Int("user_id", workspace.CreatorID).Msg("Failed to add creator as member to workspace")
+		// Decide if this error should prevent workspace creation or just be logged
+		// For now, we'll return the error as it's a critical step
+		return nil, err
+	}
+	log.Info().Int("workspace_id", workspace.ID).Int("user_id", workspace.CreatorID).Msg("Creator added as admin to workspace")
+
 	return workspace, nil
 }
 
@@ -90,15 +101,21 @@ func (s *workspaceService) DeleteWorkspace(ctx context.Context, id int) error {
 }
 
 func (s *workspaceService) GetWorkspacesForUser(ctx context.Context, userID int) ([]*models.Workspace, error) {
+	log.Debug().Int("user_id", userID).Msg("Calling WorkspaceMemberRepo.GetWorkspacesForUser")
 	memberships, err := s.workspaceMemberRepo.GetWorkspacesForUser(ctx, userID)
 	if err != nil {
 		log.Error().Err(err).Int("user_id", userID).Msg("Failed to get workspace memberships for user")
 		return nil, err
 	}
+	log.Debug().Int("user_id", userID).Int("memberships_count", len(memberships)).Msg("Received workspace memberships from repo")
 
 	workspaces := make([]*models.Workspace, 0, len(memberships))
 	for i := range memberships {
-		workspaces = append(workspaces, &memberships[i].Workspace)
+		if memberships[i].Workspace != nil {
+			workspaces = append(workspaces, memberships[i].Workspace)
+		} else {
+			log.Warn().Int("user_id", userID).Int("membership_index", i).Msg("Workspace relation is nil for a membership")
+		}
 	}
 
 	log.Info().Int("user_id", userID).Int("workspace_count", len(workspaces)).Msg("Retrieved workspaces for user successfully")

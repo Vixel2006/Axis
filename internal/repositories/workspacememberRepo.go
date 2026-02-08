@@ -69,6 +69,7 @@ func (wmr *workspaceMemberRepository) GetWorkspaceMembers(ctx context.Context, w
 }
 
 func (wmr *workspaceMemberRepository) GetWorkspacesForUser(ctx context.Context, userID int) ([]models.WorkspaceMember, error) {
+	log.Debug().Int("user_id", userID).Msg("Fetching workspaces for user from database")
 	var memberships []models.WorkspaceMember
 	err := wmr.db.NewSelect().
 		Model(&memberships).
@@ -79,6 +80,7 @@ func (wmr *workspaceMemberRepository) GetWorkspacesForUser(ctx context.Context, 
 		log.Error().Err(err).Int("user_id", userID).Msg("Failed to get workspaces for user")
 		return nil, err
 	}
+	log.Debug().Int("user_id", userID).Int("memberships_count", len(memberships)).Msg("Successfully fetched workspace memberships")
 	return memberships, nil
 }
 

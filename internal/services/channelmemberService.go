@@ -49,10 +49,12 @@ func (s *channelMemberService) RemoveMemberFromChannel(ctx context.Context, chan
 }
 
 func (s *channelMemberService) GetChannelMembers(ctx context.Context, channelID int) ([]models.ChannelMember, error) {
+	log.Debug().Int("channel_id", channelID).Msg("Calling ChannelMemberRepo.GetChannelMembers")
 	members, err := s.channelMemberRepo.GetChannelMembers(ctx, channelID)
 	if err != nil {
 		log.Error().Err(err).Int("channel_id", channelID).Msg("Failed to get channel members")
 		return nil, err
 	}
+	log.Debug().Int("channel_id", channelID).Int("members_count", len(members)).Msg("Received channel members from repo")
 	return members, nil
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+
+	"axis/internal/models"
 )
 
 // Service represents a service that interacts with a database.
@@ -25,6 +27,7 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+	GetDB() *bun.DB
 }
 
 type service struct {
@@ -49,6 +52,13 @@ func New() Service {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(connStr)))
 	db := bun.NewDB(sqldb, pgdialect.New())
+	db.RegisterModel(&models.WorkspaceMember{}, &models.ChannelMember{})
+	s := &service{
+		db: db,
+	}
+	if err := s.createTables(); err != nil {
+		log.Fatalf("Error creating tables: %v", err)
+	}
 
 	dbInstance = &service{
 		db: db,
@@ -115,3 +125,35 @@ func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", database)
 	return s.db.Close()
 }
+
+func (s *service) GetDB() *bun.DB {
+	return s.db
+}
+
+func (s *service) createTables() error {
+	ctx := context.Background()
+
+	modelsToCreate := []interface{}{
+		(*models.User)(nil),
+		(*models.Workspace)(nil),
+		(*models.WorkspaceMember)(nil),
+		(*models.Channel)(nil),
+		(*models.ChannelMember)(nil),
+		(*models.Message)(nil),
+		(*models.Attachment)(nil),
+		(*models.Reaction)(nil),
+	}
+
+	for _, model := range modelsToCreate {
+		_, err := s.db.NewCreateTable().Model(model).
+			IfNotExists().
+			Exec(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create table for model %T: %w", model, err)
+		}
+		log.Printf("Table created for model %T", model)
+	}
+
+	return nil
+}
+
