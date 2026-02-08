@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"backend/internal/models"
+	"axis/internal/models"
 	"github.com/rs/zerolog/log"
 	"github.com/uptrace/bun"
 )

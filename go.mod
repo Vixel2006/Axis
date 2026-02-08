@@ -1,4 +1,4 @@
-module backend
+module axis
 
 go 1.25.6
 

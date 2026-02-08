@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"backend/internal/models"
+	"axis/internal/models"
 	"github.com/rs/zerolog/log"
 	"github.com/uptrace/bun"
 )
