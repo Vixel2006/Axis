@@ -20,13 +20,13 @@ type Message struct {
 	ParentMessageID *int        `bun:"" json:"parent_message_id"` // For message threading/replies
 	Content         string      `bun:",notnull" json:"content"`
 	MessageType     MessageType `bun:",notnull" json:"message_type"`
-	ChannelID       int         `bun:",notnull" json:"channel_id"`
+	MeetingID       int         `bun:",notnull" json:"meeting_id"`
 	SenderID        int         `bun:",notnull" json:"sender_id"`
 	IsEdited        bool        `bun:",notnull,default:false" json:"is_edited"`
 	EditedAt        time.Time   `bun:",nullzero,default:current_timestamp" json:"edited_at"`
 	CreatedAt       time.Time   `bun:",nullzero,default:current_timestamp" json:"created_at"`
 
 	Sender        *User    `bun:"rel:belongs-to,join:sender_id=id"`
-	Channel       *Channel `bun:"rel:belongs-to,join:channel_id=id"`
+	Meeting       *Meeting `bun:"rel:belongs-to,join:meeting_id=id"`
 	ParentMessage *Message `bun:"rel:belongs-to,join:parent_message_id=id"`
 }

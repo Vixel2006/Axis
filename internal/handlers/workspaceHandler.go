@@ -43,6 +43,11 @@ func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context) {
 }
 
 func (h *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("workspaceID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -50,8 +55,12 @@ func (h *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 		return
 	}
 
-	workspace, err := h.workspaceService.GetWorkspaceByID(c.Request.Context(), id)
+	workspace, err := h.workspaceService.GetWorkspaceByIDAuthorized(c.Request.Context(), int(userID), id)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve workspace"})
 		return
 	}

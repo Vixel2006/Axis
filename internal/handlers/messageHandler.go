@@ -23,7 +23,7 @@ func NewMessageHandler(ms services.MessageService) *MessageHandler {
 func (h *MessageHandler) CreateMessage(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	var message models.Message
@@ -31,10 +31,18 @@ func (h *MessageHandler) CreateMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	message.SenderID = int(userID) // Set the SenderID from the context
+	message.SenderID = int(userID)
 
 	createdMessage, err := h.messageService.CreateMessage(c.Request.Context(), &message)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "meeting not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create message"})
 		return
 	}
@@ -64,11 +72,11 @@ func (h *MessageHandler) GetMessageByID(c *gin.Context) {
 	c.JSON(http.StatusOK, message)
 }
 
-func (h *MessageHandler) GetMessagesInChannel(c *gin.Context) {
-	channelIDStr := c.Param("channelID")
-	channelID, err := strconv.Atoi(channelIDStr)
+func (h *MessageHandler) GetMessagesInMeeting(c *gin.Context) {
+	meetingIDStr := c.Param("meetingID")
+	meetingID, err := strconv.Atoi(meetingIDStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid channel ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid meeting ID"})
 		return
 	}
 
@@ -86,9 +94,13 @@ func (h *MessageHandler) GetMessagesInChannel(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.messageService.GetMessagesInChannel(c.Request.Context(), channelID, limit, offset)
+	messages, err := h.messageService.GetMessagesInMeeting(c.Request.Context(), meetingID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages for channel"})
+		if err.Error() == "meeting not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve messages for meeting"})
 		return
 	}
 

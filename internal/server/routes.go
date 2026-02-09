@@ -34,6 +34,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	channelMemberRepo := repositories.NewChannelMemberRepo(bunDB)
 	channelRepo := repositories.NewChannelRepo(bunDB)
 	messageRepo := repositories.NewMessageRepo(bunDB)
+	meetingRepo := repositories.NewMeetingRepo(bunDB)
 	reactionRepo := repositories.NewReactionRepo(bunDB)
 	userRepo := repositories.NewUserRepo(bunDB)
 	workspaceMemberRepo := repositories.NewWorkspaceMemberRepo(bunDB)
@@ -43,10 +44,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 	attachmentService := services.NewAttachmentService(attachmentRepo)
 	channelMemberService := services.NewChannelMemberService(channelMemberRepo)
 	channelService := services.NewChannelService(channelRepo, channelMemberRepo, workspaceMemberRepo)
-	messageService := services.NewMessageService(messageRepo)
+	messageService := services.NewMessageService(messageRepo, meetingRepo)
 	reactionService := services.NewReactionService(reactionRepo)
 	userService := services.NewUserService(userRepo)
-	workspaceMemberService := services.NewWorkspaceMemberService(workspaceMemberRepo)
+	meetingService := services.NewMeetingService(meetingRepo, channelRepo, userRepo, channelMemberRepo)
+	workspaceMemberService := services.NewWorkspaceMemberService(workspaceMemberRepo, workspaceRepo)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, workspaceMemberRepo)
 
 	// --- Handlers ---
@@ -56,6 +58,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	messageHandler := handlers.NewMessageHandler(messageService)
 	reactionHandler := handlers.NewReactionHandler(reactionService)
 	userHandler := handlers.NewUserHandler(userService)
+	meetingHandler := handlers.NewMeetingHandler(meetingService)
 	workspaceMemberHandler := handlers.NewWorkspaceMemberHandler(workspaceMemberService)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService)
 
@@ -82,10 +85,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.POST("/workspaces/:workspaceID/members", workspaceMemberHandler.AddMemberToWorkspace)
 		api.DELETE("/workspaces/:workspaceID/members/:userID", workspaceMemberHandler.RemoveMemberFromWorkspace)
 		api.GET("/workspaces/:workspaceID/members", workspaceMemberHandler.GetWorkspaceMembers)
+		api.POST("/workspaces/:workspaceID/join", middlewares.JWTAuth(), workspaceMemberHandler.JoinWorkspace)
 
 		// Channel Routes
 		api.POST("/channels", middlewares.JWTAuth(), channelHandler.CreateChannel)
-		api.GET("/channels/:channelID", channelHandler.GetChannelByID)
+		api.GET("/channels/:channelID", middlewares.JWTAuth(), channelHandler.GetChannelByID)
 		api.PUT("/channels/:channelID", middlewares.JWTAuth(), channelHandler.UpdateChannel)
 		api.DELETE("/channels/:channelID", middlewares.JWTAuth(), channelHandler.DeleteChannel)
 		api.GET("/workspaces/:workspaceID/channels", middlewares.JWTAuth(), channelHandler.GetChannelsForWorkspace)
@@ -100,7 +104,16 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/messages/:messageID", messageHandler.GetMessageByID)
 		api.PUT("/messages/:messageID", middlewares.JWTAuth(), messageHandler.UpdateMessage)
 		api.DELETE("/messages/:messageID", middlewares.JWTAuth(), messageHandler.DeleteMessage)
-		api.GET("/channels/:channelID/messages", messageHandler.GetMessagesInChannel)
+		api.GET("/meetings/:meetingID/messages", messageHandler.GetMessagesInMeeting)
+
+		// Meeting Routes
+		api.POST("/meetings", middlewares.JWTAuth(), meetingHandler.CreateMeeting)
+		api.GET("/meetings/:meetingID", meetingHandler.GetMeetingByID)
+		api.PUT("/meetings/:meetingID", middlewares.JWTAuth(), meetingHandler.UpdateMeeting)
+		api.DELETE("/meetings/:meetingID", middlewares.JWTAuth(), meetingHandler.DeleteMeeting)
+		api.GET("/channels/:channelID/meetings", meetingHandler.GetMeetingsByChannelID)
+		api.POST("/meetings/:meetingID/participants", middlewares.JWTAuth(), meetingHandler.AddParticipant)
+		api.DELETE("/meetings/:meetingID/participants/:participantID", middlewares.JWTAuth(), meetingHandler.RemoveParticipant)
 
 		// Attachment Routes
 		api.POST("/attachments", attachmentHandler.CreateAttachment)

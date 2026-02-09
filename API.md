@@ -358,6 +358,28 @@ Common error status codes:
     ]
     ```
 
+**`POST /api/workspaces/:workspaceID/join`**
+
+*   **Description:** Allows an authenticated user to join a specific workspace.
+*   **Authentication:** Required.
+*   **Path Parameters:**
+    *   `workspaceID`: The ID of the workspace to join.
+*   **Request Body:** None (User ID is taken from the JWT).
+*   **Response Body Example (201 Created):**
+    ```json
+    {
+      "workspace_id": 1,
+      "user_id": 2,
+      "role": "member",
+      "created_at": "2024-02-09T10:00:00Z"
+    }
+    ```
+*   **Error Responses:**
+    *   `401 Unauthorized`: If authentication fails.
+    *   `404 Not Found`: If the `workspaceID` does not exist.
+    *   `409 Conflict`: If the user is already a member of the workspace.
+    *   `500 Internal Server Error`: For other server-side errors.
+
 ---
 
 ### Channel Management
@@ -534,12 +556,11 @@ Common error status codes:
 
 **`POST /api/messages`**
 
-*   **Description:** Sends a new message to a channel.
+*   **Description:** Sends a new message to a meeting.
 *   **Request Body Example:**
     ```json
     {
-      "channel_id": 1,
-      "sender_id": 1,
+      "meeting_id": 1,
       "content": "Hello team, this is a test message!"
     }
     ```
@@ -547,7 +568,7 @@ Common error status codes:
     ```json
     {
       "id": 1,
-      "channel_id": 1,
+      "meeting_id": 1,
       "sender_id": 1,
       "content": "Hello team, this is a test message!",
       "created_at": "2024-01-07T08:25:00Z",
@@ -564,7 +585,7 @@ Common error status codes:
     ```json
     {
       "id": 1,
-      "channel_id": 1,
+      "meeting_id": 1,
       "sender_id": 1,
       "content": "Hello team, this is a test message!",
       "created_at": "2024-01-07T08:25:00Z",
@@ -587,7 +608,7 @@ Common error status codes:
     ```json
     {
       "id": 1,
-      "channel_id": 1,
+      "meeting_id": 1,
       "sender_id": 1,
       "content": "Hello team, this is an updated message!",
       "created_at": "2024-01-07T08:25:00Z",
@@ -602,11 +623,11 @@ Common error status codes:
     *   `id`: The ID of the message to delete.
 *   **Response:** `204 No Content` on successful deletion.
 
-**`GET /api/channels/:channelID/messages?limit={limit}&offset={offset}`**
+**`GET /api/meetings/:meetingID/messages?limit={limit}&offset={offset}`**
 
-*   **Description:** Retrieves messages from a specific channel, with optional pagination.
+*   **Description:** Retrieves messages from a specific meeting, with optional pagination.
 *   **Path Parameters:**
-    *   `channelID`: The ID of the channel.
+    *   `meetingID`: The ID of the meeting.
 *   **Query Parameters:**
     *   `limit`: (Optional) Maximum number of messages to return (default: 100).
     *   `offset`: (Optional) Number of messages to skip (default: 0).
@@ -615,7 +636,7 @@ Common error status codes:
     [
       {
         "id": 1,
-        "channel_id": 1,
+        "meeting_id": 1,
         "sender_id": 1,
         "content": "Hello team, this is a test message!",
         "created_at": "2024-01-07T08:25:00Z",
@@ -623,7 +644,7 @@ Common error status codes:
       },
       {
         "id": 2,
-        "channel_id": 1,
+        "meeting_id": 1,
         "sender_id": 2,
         "content": "Hey John, great message!",
         "created_at": "2024-01-07T08:26:00Z",
@@ -631,6 +652,145 @@ Common error status codes:
       }
     ]
     ```
+
+---
+
+### Meeting Management
+
+**`POST /api/meetings`**
+
+*   **Description:** Creates a new meeting.
+*   **Request Body Example:**
+    ```json
+    {
+      "name": "Team Standup",
+      "description": "Daily team synchronization meeting",
+      "channel_id": 1,
+      "start_time": "2024-01-07T09:00:00Z",
+      "end_time": "2024-01-07T09:30:00Z",
+      "participant_ids": [1, 2]
+    }
+    ```
+*   **Response Body Example (201 Created):**
+    ```json
+    {
+      "id": 1,
+      "name": "Team Standup",
+      "description": "Daily team synchronization meeting",
+      "channel_id": 1,
+      "creator_id": 1,
+      "start_time": "2024-01-07T09:00:00Z",
+      "end_time": "2024-01-07T09:30:00Z",
+      "created_at": "2024-01-07T08:50:00Z",
+      "updated_at": "2024-01-07T08:50:00Z"
+    }
+    ```
+
+**`GET /api/meetings/:meetingID`**
+
+*   **Description:** Retrieves a meeting by its ID.
+*   **Path Parameters:**
+    *   `meetingID`: The ID of the meeting.
+*   **Response Body Example (200 OK):**
+    ```json
+    {
+      "id": 1,
+      "name": "Team Standup",
+      "description": "Daily team synchronization meeting",
+      "channel_id": 1,
+      "creator_id": 1,
+      "start_time": "2024-01-07T09:00:00Z",
+      "end_time": "2024-01-07T09:30:00Z",
+      "created_at": "2024-01-07T08:50:00Z",
+      "updated_at": "2024-01-07T08:50:00Z"
+      // Includes participants and potentially messages (if relations are loaded)
+    }
+    ```
+
+**`PUT /api/meetings/:meetingID`**
+
+*   **Description:** Updates an existing meeting's information.
+*   **Path Parameters:**
+    *   `meetingID`: The ID of the meeting to update.
+*   **Request Body Example:**
+    ```json
+    {
+      "name": "Daily Team Standup",
+      "description": "Updated daily synchronization meeting",
+      "channel_id": 1,
+      "start_time": "2024-01-07T09:00:00Z",
+      "end_time": "2024-01-07T09:45:00Z"
+    }
+    ```
+*   **Response Body Example (200 OK):**
+    ```json
+    {
+      "id": 1,
+      "name": "Daily Team Standup",
+      "description": "Updated daily synchronization meeting",
+      "channel_id": 1,
+      "creator_id": 1,
+      "start_time": "2024-01-07T09:00:00Z",
+      "end_time": "2024-01-07T09:45:00Z",
+      "created_at": "2024-01-07T08:50:00Z",
+      "updated_at": "2024-01-07T09:05:00Z"
+    }
+    ```
+
+**`DELETE /api/meetings/:meetingID`**
+
+*   **Description:** Deletes a meeting by its ID.
+*   **Path Parameters:**
+    *   `meetingID`: The ID of the meeting to delete.
+*   **Response:** `204 No Content` on successful deletion.
+
+**`GET /api/channels/:channelID/meetings`**
+
+*   **Description:** Retrieves all meetings within a specific channel.
+*   **Path Parameters:**
+    *   `channelID`: The ID of the channel.
+*   **Response Body Example (200 OK):**
+    ```json
+    [
+      {
+        "id": 1,
+        "name": "Team Standup",
+        "description": "Daily team synchronization meeting",
+        "channel_id": 1,
+        "creator_id": 1,
+        "start_time": "2024-01-07T09:00:00Z",
+        "end_time": "2024-01-07T09:30:00Z",
+        "created_at": "2024-01-07T08:50:00Z",
+        "updated_at": "2024-01-07T08:50:00Z"
+      }
+    ]
+    ```
+
+**`POST /api/meetings/:meetingID/participants`**
+
+*   **Description:** Adds a user as a participant to a specific meeting.
+*   **Path Parameters:**
+    *   `meetingID`: The ID of the meeting.
+*   **Request Body Example:**
+    ```json
+    {
+      "participant_id": 3
+    }
+    ```
+*   **Response Body Example (200 OK):**
+    ```json
+    {
+      "message": "Participant added successfully"
+    }
+    ```
+
+**`DELETE /api/meetings/:meetingID/participants/:participantID`**
+
+*   **Description:** Removes a user from a specific meeting.
+*   **Path Parameters:**
+    *   `meetingID`: The ID of the meeting.
+    *   `participantID`: The ID of the user to remove.
+*   **Response:** `200 OK` on successful removal.
 
 ---
 
