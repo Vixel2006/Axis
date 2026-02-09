@@ -14,6 +14,7 @@ type ChannelMemberRepo interface {
 	GetChannelMembers(ctx context.Context, channelID int) ([]models.ChannelMember, error)
 	GetChannelsForUser(ctx context.Context, userID int) ([]models.ChannelMember, error)
 	UpdateLastReadMessageID(ctx context.Context, channelID, userID int, messageID *int) error
+	IsMemberOfChannel(ctx context.Context, channelID, userID int) (bool, error)
 }
 
 type channelMemberRepository struct {
@@ -95,4 +96,17 @@ func (cmr *channelMemberRepository) UpdateLastReadMessageID(ctx context.Context,
 		return err
 	}
 	return nil
+}
+
+func (cmr *channelMemberRepository) IsMemberOfChannel(ctx context.Context, channelID, userID int) (bool, error) {
+	count, err := cmr.db.NewSelect().
+		Model((*models.ChannelMember)(nil)).
+		Where("channel_id = ?", channelID).
+		Where("user_id = ?", userID).
+		Count(ctx)
+	if err != nil {
+		log.Error().Err(err).Int("channel_id", channelID).Int("user_id", userID).Msg("Failed to check if user is member of channel")
+		return false, err
+	}
+	return count > 0, nil
 }

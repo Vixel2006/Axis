@@ -6,6 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
+	"axis/internal/utils" // Import the utils package
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,11 +21,17 @@ func NewChannelHandler(cs services.ChannelService) *ChannelHandler {
 }
 
 func (h *ChannelHandler) CreateChannel(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	var channel models.Channel
 	if err := c.ShouldBindJSON(&channel); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	channel.CreatorID = int(userID) // Set the CreatorID from the context
 
 	createdChannel, err := h.channelService.CreateChannel(c.Request.Context(), &channel)
 	if err != nil {
@@ -58,6 +65,11 @@ func (h *ChannelHandler) GetChannelByID(c *gin.Context) {
 }
 
 func (h *ChannelHandler) GetChannelsForWorkspace(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	workspaceIDStr := c.Param("workspaceID")
 	workspaceID, err := strconv.Atoi(workspaceIDStr)
 	if err != nil {
@@ -65,8 +77,12 @@ func (h *ChannelHandler) GetChannelsForWorkspace(c *gin.Context) {
 		return
 	}
 
-	channels, err := h.channelService.GetChannelsForWorkspace(c.Request.Context(), workspaceID)
+	channels, err := h.channelService.GetChannelsForWorkspace(c.Request.Context(), int(userID), workspaceID)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve channels for workspace"})
 		return
 	}
@@ -75,6 +91,11 @@ func (h *ChannelHandler) GetChannelsForWorkspace(c *gin.Context) {
 }
 
 func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("channelID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -89,8 +110,13 @@ func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
 	}
 	channel.ID = id // Ensure the ID from the URL is used
 
-	updatedChannel, err := h.channelService.UpdateChannel(c.Request.Context(), &channel)
+	// Pass userID to the service for authorization
+	updatedChannel, err := h.channelService.UpdateChannel(c.Request.Context(), int(userID), &channel)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update channel"})
 		return
 	}
@@ -104,6 +130,11 @@ func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
 }
 
 func (h *ChannelHandler) DeleteChannel(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("channelID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -111,8 +142,13 @@ func (h *ChannelHandler) DeleteChannel(c *gin.Context) {
 		return
 	}
 
-	err = h.channelService.DeleteChannel(c.Request.Context(), id)
+	// Pass userID to the service for authorization
+	err = h.channelService.DeleteChannel(c.Request.Context(), int(userID), id)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete channel"})
 		return
 	}

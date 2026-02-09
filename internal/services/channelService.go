@@ -12,20 +12,22 @@ import (
 type ChannelService interface {
 	CreateChannel(ctx context.Context, channel *models.Channel) (*models.Channel, error)
 	GetChannelByID(ctx context.Context, id int) (*models.Channel, error)
-	GetChannelsForWorkspace(ctx context.Context, workspaceID int) ([]models.Channel, error)
-	UpdateChannel(ctx context.Context, channel *models.Channel) (*models.Channel, error)
-	DeleteChannel(ctx context.Context, id int) error
+	GetChannelsForWorkspace(ctx context.Context, userID int, workspaceID int) ([]models.Channel, error)
+	UpdateChannel(ctx context.Context, userID int, channel *models.Channel) (*models.Channel, error)
+	DeleteChannel(ctx context.Context, userID int, id int) error
 }
 
 type channelService struct {
-	channelRepo       repositories.ChannelRepo
-	channelMemberRepo repositories.ChannelMemberRepo
+	channelRepo         repositories.ChannelRepo
+	channelMemberRepo   repositories.ChannelMemberRepo
+	workspaceMemberRepo repositories.WorkspaceMemberRepo
 }
 
-func NewChannelService(cr repositories.ChannelRepo, cmr repositories.ChannelMemberRepo) ChannelService {
+func NewChannelService(cr repositories.ChannelRepo, cmr repositories.ChannelMemberRepo, wmr repositories.WorkspaceMemberRepo) ChannelService {
 	return &channelService{
-		channelRepo:       cr,
-		channelMemberRepo: cmr,
+		channelRepo:         cr,
+		channelMemberRepo:   cmr,
+		workspaceMemberRepo: wmr,
 	}
 }
 
@@ -63,7 +65,17 @@ func (s *channelService) GetChannelByID(ctx context.Context, id int) (*models.Ch
 	return channel, nil
 }
 
-func (s *channelService) GetChannelsForWorkspace(ctx context.Context, workspaceID int) ([]models.Channel, error) {
+func (s *channelService) GetChannelsForWorkspace(ctx context.Context, userID int, workspaceID int) ([]models.Channel, error) {
+	// Authorization check: User must be a member of the workspace
+	isMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, workspaceID, int(userID))
+	if err != nil {
+		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", int(userID)).Msg("Failed to check workspace membership for channels")
+		return nil, err
+	}
+	if !isMember {
+		return nil, &ForbiddenError{Message: "User not authorized to view channels in this workspace"}
+	}
+
 	channels, err := s.channelRepo.GetChannelsByWorkspaceID(ctx, workspaceID)
 	if err != nil {
 		log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get channels for workspace")
@@ -72,7 +84,7 @@ func (s *channelService) GetChannelsForWorkspace(ctx context.Context, workspaceI
 	return channels, nil
 }
 
-func (s *channelService) UpdateChannel(ctx context.Context, channel *models.Channel) (*models.Channel, error) {
+func (s *channelService) UpdateChannel(ctx context.Context, userID int, channel *models.Channel) (*models.Channel, error) {
 	// First, check if the channel exists
 	existingChannel, err := s.channelRepo.GetChannelByID(ctx, channel.ID)
 	if err != nil {
@@ -82,6 +94,29 @@ func (s *channelService) UpdateChannel(ctx context.Context, channel *models.Chan
 		}
 		log.Error().Err(err).Int("channel_id", channel.ID).Msg("Failed to get channel for update")
 		return nil, err
+	}
+
+	// Authorization check: Only the creator of the channel or an admin of the workspace can update it
+	// First, check if the user is the creator
+	if existingChannel.CreatorID != int(userID) {
+		// If not the creator, check if the user is an admin member of the workspace
+		isWorkspaceAdmin, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, existingChannel.WorkspaceID, int(userID))
+		if err != nil {
+			log.Error().Err(err).Int("workspace_id", existingChannel.WorkspaceID).Int("user_id", int(userID)).Msg("Failed to check workspace membership for channel update")
+			return nil, err
+		}
+		if !isWorkspaceAdmin {
+			return nil, &ForbiddenError{Message: "User not authorized to update this channel"}
+		}
+		// Further check for admin role
+		member, err := s.workspaceMemberRepo.GetWorkspaceMember(ctx, existingChannel.WorkspaceID, int(userID))
+		if err != nil && err != sql.ErrNoRows {
+			log.Error().Err(err).Int("workspace_id", existingChannel.WorkspaceID).Int("user_id", int(userID)).Msg("Failed to get workspace member role for channel update")
+			return nil, err
+		}
+		if member == nil || member.Role != models.Admin {
+			return nil, &ForbiddenError{Message: "User not authorized to update this channel"}
+		}
 	}
 
 	// Update fields
@@ -97,8 +132,41 @@ func (s *channelService) UpdateChannel(ctx context.Context, channel *models.Chan
 	return existingChannel, nil
 }
 
-func (s *channelService) DeleteChannel(ctx context.Context, id int) error {
-	err := s.channelRepo.DeleteChannel(ctx, id)
+func (s *channelService) DeleteChannel(ctx context.Context, userID int, id int) error {
+	existingChannel, err := s.channelRepo.GetChannelByID(ctx, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Int("channel_id", id).Msg("Channel not found for deletion")
+			return nil
+		}
+		log.Error().Err(err).Int("channel_id", id).Msg("Failed to get channel for deletion")
+		return err
+	}
+
+	// Authorization check: Only the creator of the channel or an admin of the workspace can delete it
+	// First, check if the user is the creator
+	if existingChannel.CreatorID != int(userID) {
+		// If not the creator, check if the user is an admin member of the workspace
+		isWorkspaceAdmin, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, existingChannel.WorkspaceID, int(userID))
+		if err != nil {
+			log.Error().Err(err).Int("workspace_id", existingChannel.WorkspaceID).Int("user_id", int(userID)).Msg("Failed to check workspace membership for channel deletion")
+			return err
+		}
+		if !isWorkspaceAdmin {
+			return &ForbiddenError{Message: "User not authorized to delete this channel"}
+		}
+		// Further check for admin role
+		member, err := s.workspaceMemberRepo.GetWorkspaceMember(ctx, existingChannel.WorkspaceID, int(userID))
+		if err != nil && err != sql.ErrNoRows {
+			log.Error().Err(err).Int("workspace_id", existingChannel.WorkspaceID).Int("user_id", int(userID)).Msg("Failed to get workspace member role for channel deletion")
+			return err
+		}
+		if member == nil || member.Role != models.Admin {
+			return &ForbiddenError{Message: "User not authorized to delete this channel"}
+		}
+	}
+
+	err = s.channelRepo.DeleteChannel(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Info().Int("channel_id", id).Msg("Channel not found for deletion")
