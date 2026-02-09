@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"axis/internal/models"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/uptrace/bun"
 )
 
@@ -17,19 +17,21 @@ type WorkspaceRepo interface {
 }
 
 type workspaceRepository struct {
-	db *bun.DB
+	db  *bun.DB
+	log zerolog.Logger
 }
 
-func NewWorkspaceRepo(db *bun.DB) WorkspaceRepo {
+func NewWorkspaceRepo(db *bun.DB, logger zerolog.Logger) WorkspaceRepo {
 	return &workspaceRepository{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 }
 
 func (wr *workspaceRepository) CreateWorkspace(ctx context.Context, workspace *models.Workspace) error {
 	_, err := wr.db.NewInsert().Model(workspace).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Str("workspace_name", workspace.Name).Msg("Failed to create workspace")
+		wr.log.Error().Err(err).Str("workspace_name", workspace.Name).Msg("Failed to create workspace")
 		return err
 	}
 	return nil
@@ -40,10 +42,10 @@ func (wr *workspaceRepository) GetWorkspaceByID(ctx context.Context, workspaceID
 	err := wr.db.NewSelect().Model(workspace).Where("id = ?", workspaceID).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Int("workspace_id", workspaceID).Msg("Workspace not found")
+			wr.log.Info().Int("workspace_id", workspaceID).Msg("Workspace not found")
 			return nil, nil
 		}
-		log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace by ID")
+		wr.log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace by ID")
 		return nil, err
 	}
 	return workspace, nil
@@ -52,7 +54,7 @@ func (wr *workspaceRepository) GetWorkspaceByID(ctx context.Context, workspaceID
 func (wr *workspaceRepository) UpdateWorkspace(ctx context.Context, workspace *models.Workspace) error {
 	_, err := wr.db.NewUpdate().Model(workspace).WherePK().Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspace.ID).Msg("Failed to update workspace")
+		wr.log.Error().Err(err).Int("workspace_id", workspace.ID).Msg("Failed to update workspace")
 		return err
 	}
 	return nil
@@ -61,7 +63,7 @@ func (wr *workspaceRepository) UpdateWorkspace(ctx context.Context, workspace *m
 func (wr *workspaceRepository) DeleteWorkspace(ctx context.Context, workspaceID int) error {
 	_, err := wr.db.NewDelete().Model(&models.Workspace{}).Where("id = ?", workspaceID).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to delete workspace")
+		wr.log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to delete workspace")
 		return err
 	}
 	return nil

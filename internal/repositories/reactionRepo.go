@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"axis/internal/models"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/uptrace/bun"
 )
 
@@ -17,19 +17,21 @@ type ReactionRepo interface {
 }
 
 type reactionRepository struct {
-	db *bun.DB
+	db  *bun.DB
+	log zerolog.Logger
 }
 
-func NewReactionRepo(db *bun.DB) ReactionRepo {
+func NewReactionRepo(db *bun.DB, logger zerolog.Logger) ReactionRepo {
 	return &reactionRepository{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 }
 
 func (rr *reactionRepository) AddReaction(ctx context.Context, reaction *models.Reaction) error {
 	_, err := rr.db.NewInsert().Model(reaction).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("message_id", reaction.MessageID).Int("user_id", reaction.UserID).
+		rr.log.Error().Err(err).Int("message_id", reaction.MessageID).Int("user_id", reaction.UserID).
 			Str("emoji", reaction.Emoji).Msg("Failed to add reaction")
 		return err
 	}
@@ -39,7 +41,7 @@ func (rr *reactionRepository) AddReaction(ctx context.Context, reaction *models.
 func (rr *reactionRepository) RemoveReaction(ctx context.Context, reactionID int) error {
 	_, err := rr.db.NewDelete().Model(&models.Reaction{}).Where("id = ?", reactionID).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("reaction_id", reactionID).Msg("Failed to remove reaction")
+		rr.log.Error().Err(err).Int("reaction_id", reactionID).Msg("Failed to remove reaction")
 		return err
 	}
 	return nil
@@ -49,7 +51,7 @@ func (rr *reactionRepository) GetReactionsByMessageID(ctx context.Context, messa
 	var reactions []models.Reaction
 	err := rr.db.NewSelect().Model(&reactions).Where("message_id = ?", messageID).Scan(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("message_id", messageID).Msg("Failed to get reactions by message ID")
+		rr.log.Error().Err(err).Int("message_id", messageID).Msg("Failed to get reactions by message ID")
 		return nil, err
 	}
 	return reactions, nil
@@ -65,10 +67,10 @@ func (rr *reactionRepository) GetReactionByMessageUserEmoji(ctx context.Context,
 		Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Int("message_id", messageID).Int("user_id", userID).Str("emoji", emoji).Msg("Reaction not found")
+			rr.log.Info().Int("message_id", messageID).Int("user_id", userID).Str("emoji", emoji).Msg("Reaction not found")
 			return nil, nil
 		}
-		log.Error().Err(err).Int("message_id", messageID).Int("user_id", userID).
+		rr.log.Error().Err(err).Int("message_id", messageID).Int("user_id", userID).
 			Str("emoji", emoji).Msg("Failed to get reaction by message, user, and emoji")
 		return nil, err
 	}

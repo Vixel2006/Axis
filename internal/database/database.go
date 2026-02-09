@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 
 	"axis/internal/models"
+	"github.com/rs/zerolog"
 )
 
 // Service represents a service that interacts with a database.
@@ -31,7 +31,8 @@ type Service interface {
 }
 
 type service struct {
-	db *bun.DB
+	db  *bun.DB
+	log zerolog.Logger
 }
 
 var (
@@ -44,7 +45,7 @@ var (
 	dbInstance *service
 )
 
-func New() Service {
+func New(logger zerolog.Logger) Service {
 	// Reuse Connection
 	if dbInstance != nil {
 		return dbInstance
@@ -54,14 +55,16 @@ func New() Service {
 	db := bun.NewDB(sqldb, pgdialect.New())
 	db.RegisterModel(&models.WorkspaceMember{}, &models.ChannelMember{}, &models.MeetingMember{})
 	s := &service{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 	if err := s.createTables(); err != nil {
-		log.Fatalf("Error creating tables: %v", err)
+		s.log.Fatal().Err(err).Msg("Error creating tables")
 	}
 
 	dbInstance = &service{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 	return dbInstance
 }
@@ -79,7 +82,7 @@ func (s *service) Health() map[string]string {
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("db down: %v", err)
-		log.Fatalf("db down: %v", err) // Log the error and terminate the program
+		s.log.Fatal().Err(err).Msg("Database is down") // Log the error and terminate the program
 		return stats
 	}
 
@@ -119,10 +122,9 @@ func (s *service) Health() map[string]string {
 
 // Close closes the database connection.
 // It logs a message indicating the disconnection from the specific database.
-// If the connection is successfully closed, it returns nil.
-// If an error occurs while closing the connection, it returns the error.
+// It returns an error if the connection cannot be closed.
 func (s *service) Close() error {
-	log.Printf("Disconnected from database: %s", database)
+	s.log.Info().Str("database", database).Msg("Disconnected from database")
 	return s.db.Close()
 }
 
@@ -153,9 +155,8 @@ func (s *service) createTables() error {
 		if err != nil {
 			return fmt.Errorf("failed to create table for model %T: %w", model, err)
 		}
-		log.Printf("Table created for model %T", model)
+		s.log.Info().Str("model", fmt.Sprintf("%T", model)).Msg("Table created")
 	}
 
 	return nil
 }
-

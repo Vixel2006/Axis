@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 
 	"axis/internal/repositories"
@@ -22,11 +22,13 @@ type UserService interface {
 
 type userService struct {
 	userRepo repositories.UserRepo
+	log      zerolog.Logger
 }
 
-func NewUserService(userRepo repositories.UserRepo) UserService {
+func NewUserService(userRepo repositories.UserRepo, logger zerolog.Logger) UserService {
 	return &userService{
 		userRepo: userRepo,
+		log:      logger,
 	}
 }
 
@@ -34,7 +36,7 @@ func NewUserService(userRepo repositories.UserRepo) UserService {
 func (s *userService) Register(ctx context.Context, form models.RegisterModel) (*models.User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Error().Err(err).Msg("Can't hash the password")
+		s.log.Error().Err(err).Msg("Can't hash the password")
 		return nil, err
 	}
 
@@ -52,7 +54,7 @@ func (s *userService) Register(ctx context.Context, form models.RegisterModel) (
 
 	err = s.userRepo.CreateUser(ctx, user)
 	if err != nil {
-		log.Info().Str("email", user.Email).Msg("User already exists")
+		s.log.Info().Str("email", user.Email).Msg("User already exists")
 		return nil, err
 	}
 
@@ -63,15 +65,15 @@ func (s *userService) Login(ctx context.Context, creds models.LoginModel) (*mode
 	user, err := s.userRepo.GetUserByEmail(ctx, creds.Email)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msg("User not found during login.")
+			s.log.Info().Str("email", creds.Email).Msg("User not found during login.")
 			return nil, err
 		}
-		log.Error().Err(err).Msg("Failed to fetch user by email for login")
+		s.log.Error().Err(err).Str("email", creds.Email).Msg("Failed to fetch user by email for login")
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password)); err != nil {
-		log.Error().Err(err).Msg("Login with Invalid password.")
+		s.log.Error().Err(err).Str("email", creds.Email).Msg("Login with Invalid password.")
 		return nil, err
 	}
 
@@ -82,10 +84,10 @@ func (s *userService) GetUserByID(ctx context.Context, id int) (*models.User, er
 	user, err := s.userRepo.GetUserByID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with ID %d not found.", id)
+			s.log.Info().Int("user_id", id).Msg("User not found.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user by ID %d.", id)
+		s.log.Error().Err(err).Int("user_id", id).Msg("Failed to fetch user by ID.")
 		return nil, err
 	}
 	return user, nil
@@ -95,10 +97,10 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*models
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with email %s not found.", email)
+			s.log.Info().Str("email", email).Msg("User not found by email.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user by email %s.", email)
+		s.log.Error().Err(err).Str("email", email).Msg("Failed to fetch user by email.")
 		return nil, err
 	}
 	return user, nil
@@ -108,10 +110,10 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string) (*
 	user, err := s.userRepo.GetUserByUsername(ctx, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with username %s not found.", username)
+			s.log.Info().Str("username", username).Msg("User not found by username.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user by username %s.", username)
+		s.log.Error().Err(err).Str("username", username).Msg("Failed to fetch user by username.")
 		return nil, err
 	}
 	return user, nil
@@ -121,10 +123,10 @@ func (s *userService) UpdateUser(ctx context.Context, userID int, newUser models
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with ID %d not found for update.", userID)
+			s.log.Info().Int("user_id", userID).Msg("User not found for update.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user with ID %d for update.", userID)
+		s.log.Error().Err(err).Int("user_id", userID).Msg("Failed to fetch user for update.")
 		return nil, err
 	}
 
@@ -146,7 +148,7 @@ func (s *userService) UpdateUser(ctx context.Context, userID int, newUser models
 
 	err = s.userRepo.UpdateUser(ctx, user)
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to update user with ID %d.", userID)
+		s.log.Error().Err(err).Int("user_id", userID).Msg("Failed to update user.")
 		return nil, err
 	}
 
@@ -157,10 +159,10 @@ func (s *userService) DeleteUser(ctx context.Context, id int) error {
 	err := s.userRepo.DeleteUser(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with ID %d not found for deletion.", id)
+			s.log.Info().Int("user_id", id).Msg("User not found for deletion.")
 			return err
 		}
-		log.Error().Err(err).Msgf("Failed to delete user with ID %d.", id)
+		s.log.Error().Err(err).Int("user_id", id).Msg("Failed to delete user.")
 		return err
 	}
 	return nil

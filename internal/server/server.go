@@ -10,20 +10,21 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"axis/internal/database"
+	"github.com/rs/zerolog"
 )
 
 type Server struct {
 	port int
-
-	db database.Service
+	db   database.Service
+	log  zerolog.Logger
 }
 
-func NewServer() *http.Server {
+func NewServer(logger zerolog.Logger) *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	NewServer := &Server{
 		port: port,
-
-		db: database.New(),
+		db:   database.New(logger),
+		log:  logger,
 	}
 
 	// Declare Server config

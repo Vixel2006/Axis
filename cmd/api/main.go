@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"axis/internal/server"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -20,7 +21,7 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	// Listen for the interrupt signal.
 	<-ctx.Done()
 
-	log.Println("shutting down gracefully, press Ctrl+C again to force")
+	log.Info().Msg("shutting down gracefully, press Ctrl+C again to force")
 	stop() // Allow Ctrl+C to force shutdown
 
 	// The context is used to inform the server it has 5 seconds to finish
@@ -28,18 +29,20 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown with error: %v", err)
+		log.Error().Err(err).Msg("Server forced to shutdown with error")
 	}
 
-	log.Println("Server exiting")
+	log.Info().Msg("Server exiting")
 
 	// Notify the main goroutine that the shutdown is complete
 	done <- true
 }
 
 func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	server := server.NewServer()
+	server := server.NewServer(log.Logger)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
@@ -49,10 +52,10 @@ func main() {
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		panic(fmt.Sprintf("http server error: %s", err))
+		log.Fatal().Err(err).Msg("http server error")
 	}
 
 	// Wait for the graceful shutdown to complete
 	<-done
-	log.Println("Graceful shutdown complete.")
+	log.Info().Msg("Graceful shutdown complete.")
 }

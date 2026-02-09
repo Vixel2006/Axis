@@ -5,7 +5,7 @@ import (
 	"database/sql"
 
 	"axis/internal/models"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/uptrace/bun"
 )
 
@@ -20,12 +20,14 @@ type WorkspaceMemberRepo interface {
 }
 
 type workspaceMemberRepository struct {
-	db *bun.DB
+	db  *bun.DB
+	log zerolog.Logger
 }
 
-func NewWorkspaceMemberRepo(db *bun.DB) WorkspaceMemberRepo {
+func NewWorkspaceMemberRepo(db *bun.DB, logger zerolog.Logger) WorkspaceMemberRepo {
 	return &workspaceMemberRepository{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 }
 
@@ -37,7 +39,7 @@ func (wmr *workspaceMemberRepository) AddMemberToWorkspace(ctx context.Context, 
 	}
 	_, err := wmr.db.NewInsert().Model(workspaceMember).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).
 			Str("role", role.String()).Msg("Failed to add member to workspace")
 		return err
 	}
@@ -51,7 +53,7 @@ func (wmr *workspaceMemberRepository) RemoveMemberFromWorkspace(ctx context.Cont
 		Where("user_id = ?", userID).
 		Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to remove member from workspace")
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to remove member from workspace")
 		return err
 	}
 	return nil
@@ -65,14 +67,14 @@ func (wmr *workspaceMemberRepository) GetWorkspaceMembers(ctx context.Context, w
 		Relation("User"). // Eager load user details
 		Scan(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace members")
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace members")
 		return nil, err
 	}
 	return members, nil
 }
 
 func (wmr *workspaceMemberRepository) GetWorkspacesForUser(ctx context.Context, userID int) ([]models.WorkspaceMember, error) {
-	log.Debug().Int("user_id", userID).Msg("Fetching workspaces for user from database")
+	wmr.log.Debug().Int("user_id", userID).Msg("Fetching workspaces for user from database")
 	var memberships []models.WorkspaceMember
 	err := wmr.db.NewSelect().
 		Model(&memberships).
@@ -80,10 +82,10 @@ func (wmr *workspaceMemberRepository) GetWorkspacesForUser(ctx context.Context, 
 		Relation("Workspace"). // Eager load workspace details
 		Scan(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("user_id", userID).Msg("Failed to get workspaces for user")
+		wmr.log.Error().Err(err).Int("user_id", userID).Msg("Failed to get workspaces for user")
 		return nil, err
 	}
-	log.Debug().Int("user_id", userID).Int("memberships_count", len(memberships)).Msg("Successfully fetched workspace memberships")
+	wmr.log.Debug().Int("user_id", userID).Int("memberships_count", len(memberships)).Msg("Successfully fetched workspace memberships")
 	return memberships, nil
 }
 
@@ -95,7 +97,7 @@ func (wmr *workspaceMemberRepository) UpdateWorkspaceMemberRole(ctx context.Cont
 		Set("role = ?", role).
 		Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).
 			Str("role", role.String()).Msg("Failed to update workspace member role")
 		return err
 	}
@@ -109,7 +111,7 @@ func (wmr *workspaceMemberRepository) IsMemberOfWorkspace(ctx context.Context, w
 		Where("user_id = ?", userID).
 		Count(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to check if user is member of workspace")
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to check if user is member of workspace")
 		return false, err
 	}
 	return count > 0, nil
@@ -126,7 +128,7 @@ func (wmr *workspaceMemberRepository) GetWorkspaceMember(ctx context.Context, wo
 		if err == sql.ErrNoRows {
 			return nil, nil // Member not found
 		}
-		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to get workspace member")
+		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to get workspace member")
 		return nil, err
 	}
 	return member, nil

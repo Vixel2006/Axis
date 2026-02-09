@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/uptrace/bun"
 
 
@@ -20,12 +20,14 @@ type UserRepo interface {
 }
 
 type userRepository struct {
-	db *bun.DB
+	db  *bun.DB
+	log zerolog.Logger
 }
 
-func NewUserRepo(db *bun.DB) UserRepo {
+func NewUserRepo(db *bun.DB, logger zerolog.Logger) UserRepo {
 	return &userRepository{
-		db: db,
+		db:  db,
+		log: logger,
 	}
 }
 
@@ -39,10 +41,10 @@ func (ur *userRepository) GetUserByID(ctx context.Context, userID int) (*models.
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msg("User not found.")
+			ur.log.Info().Int("user_id", userID).Msg("User not found.")
 			return nil, err
 		}
-		log.Error().Err(err).Msg("Failed to fetch user.")
+		ur.log.Error().Err(err).Int("user_id", userID).Msg("Failed to fetch user by ID.")
 		return nil, err
 	}
 
@@ -59,10 +61,10 @@ func (ur *userRepository) GetUserByEmail(ctx context.Context, email string) (*mo
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with email %s not found.", email)
+			ur.log.Info().Str("email", email).Msg("User not found by email.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user by email %s.", email)
+		ur.log.Error().Err(err).Str("email", email).Msg("Failed to fetch user by email.")
 		return nil, err
 	}
 
@@ -79,18 +81,15 @@ func (ur *userRepository) GetUserByUsername(ctx context.Context, username string
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with username %s not found.", username)
+			ur.log.Info().Str("username", username).Msg("User not found by username.")
 			return nil, err
 		}
-		log.Error().Err(err).Msgf("Failed to fetch user by username %s.", username)
+		ur.log.Error().Err(err).Str("username", username).Msg("Failed to fetch user by username.")
 		return nil, err
 	}
 
 	return user, nil
 }
-
-
-
 
 
 func (ur *userRepository) CreateUser(ctx context.Context, user *models.User) error {
@@ -99,7 +98,7 @@ func (ur *userRepository) CreateUser(ctx context.Context, user *models.User) err
 		Exec(ctx)
 
 	if err != nil {
-		log.Error().Err(err).Str("email", user.Email).Msg("Failed to create user.")
+		ur.log.Error().Err(err).Str("email", user.Email).Msg("Failed to create user.")
 		return err
 	}
 	return nil
@@ -112,7 +111,7 @@ func (ur *userRepository) UpdateUser(ctx context.Context, user *models.User) err
 		Exec(ctx)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to update user with ID %d.", user.ID)
+		ur.log.Error().Err(err).Int("user_id", user.ID).Msg("Failed to update user.")
 		return err
 	}
 
@@ -127,10 +126,10 @@ func (ur *userRepository) DeleteUser(ctx context.Context, userID int) error {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Msgf("User with ID %d not found for deletion.", userID)
+			ur.log.Info().Int("user_id", userID).Msg("User not found for deletion.")
 			return err
 		}
-		log.Error().Err(err).Msgf("Failed to delete user with ID %d.", userID)
+		ur.log.Error().Err(err).Int("user_id", userID).Msg("Failed to delete user.")
 		return err
 	}
 

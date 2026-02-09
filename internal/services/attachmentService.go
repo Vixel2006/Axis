@@ -6,7 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/repositories"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 type AttachmentService interface {
@@ -17,21 +17,23 @@ type AttachmentService interface {
 
 type attachmentService struct {
 	attachmentRepo repositories.AttachmentRepo
+	log            zerolog.Logger
 }
 
-func NewAttachmentService(ar repositories.AttachmentRepo) AttachmentService {
+func NewAttachmentService(ar repositories.AttachmentRepo, logger zerolog.Logger) AttachmentService {
 	return &attachmentService{
 		attachmentRepo: ar,
+		log:            logger,
 	}
 }
 
 func (s *attachmentService) CreateAttachment(ctx context.Context, attachment *models.Attachment) (*models.Attachment, error) {
 	err := s.attachmentRepo.CreateAttachment(ctx, attachment)
 	if err != nil {
-		log.Error().Err(err).Str("filename", attachment.FileName).Msg("Failed to create attachment")
+		s.log.Error().Err(err).Str("filename", attachment.FileName).Msg("Failed to create attachment")
 		return nil, err
 	}
-	log.Info().Int("attachment_id", attachment.ID).Str("filename", attachment.FileName).Msg("Attachment created successfully")
+	s.log.Info().Int("attachment_id", attachment.ID).Str("filename", attachment.FileName).Msg("Attachment created successfully")
 	return attachment, nil
 }
 
@@ -39,10 +41,10 @@ func (s *attachmentService) GetAttachmentByID(ctx context.Context, id int) (*mod
 	attachment, err := s.attachmentRepo.GetAttachmentByID(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Info().Int("attachment_id", id).Msg("Attachment not found")
+			s.log.Info().Int("attachment_id", id).Msg("Attachment not found")
 			return nil, nil
 		}
-		log.Error().Err(err).Int("attachment_id", id).Msg("Failed to get attachment by ID")
+		s.log.Error().Err(err).Int("attachment_id", id).Msg("Failed to get attachment by ID")
 		return nil, err
 	}
 	return attachment, nil
@@ -51,7 +53,7 @@ func (s *attachmentService) GetAttachmentByID(ctx context.Context, id int) (*mod
 func (s *attachmentService) GetAttachmentsForMessage(ctx context.Context, messageID int) ([]models.Attachment, error) {
 	attachments, err := s.attachmentRepo.GetAttachmentsByMessageID(ctx, messageID)
 	if err != nil {
-		log.Error().Err(err).Int("message_id", messageID).Msg("Failed to get attachments for message")
+		s.log.Error().Err(err).Int("message_id", messageID).Msg("Failed to get attachments for message")
 		return nil, err
 	}
 	return attachments, nil
