@@ -5,6 +5,7 @@ import (
 
 
 	"axis/internal/handlers"
+	"axis/internal/middlewares"
 	"axis/internal/repositories"
 	"axis/internal/services"
 
@@ -41,7 +42,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// --- Services ---
 	attachmentService := services.NewAttachmentService(attachmentRepo)
 	channelMemberService := services.NewChannelMemberService(channelMemberRepo)
-	channelService := services.NewChannelService(channelRepo, channelMemberRepo)
+	channelService := services.NewChannelService(channelRepo, channelMemberRepo, workspaceMemberRepo)
 	messageService := services.NewMessageService(messageRepo)
 	reactionService := services.NewReactionService(reactionRepo)
 	userService := services.NewUserService(userRepo)
@@ -64,18 +65,18 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// User Routes
 		api.POST("/register", userHandler.Register)
 		api.POST("/login", userHandler.Login)
-		api.GET("/users/:userID", userHandler.GetUserByID)
+		api.GET("/users", middlewares.JWTAuth(), userHandler.GetUserByID)
 		api.GET("/users/by-email", userHandler.GetUserByEmail)       // Query param: ?email=
 		api.GET("/users/by-username", userHandler.GetUserByUsername) // Query param: ?username=
-		api.PUT("/users/:userID", userHandler.UpdateUser)
-		api.DELETE("/users/:userID", userHandler.DeleteUser)
+		api.PUT("/users", middlewares.JWTAuth(), userHandler.UpdateUser)
+		api.DELETE("/users", middlewares.JWTAuth(), userHandler.DeleteUser)
 
 		// Workspace Routes
-		api.POST("/workspaces", workspaceHandler.CreateWorkspace)
+		api.POST("/workspaces", middlewares.JWTAuth(), workspaceHandler.CreateWorkspace)
 		api.GET("/workspaces/:workspaceID", workspaceHandler.GetWorkspaceByID)
-		api.PUT("/workspaces/:workspaceID", workspaceHandler.UpdateWorkspace)
-		api.DELETE("/workspaces/:workspaceID", workspaceHandler.DeleteWorkspace)
-		api.GET("/users/:userID/workspaces", workspaceHandler.GetWorkspacesForUser)
+		api.PUT("/workspaces/:workspaceID", middlewares.JWTAuth(), workspaceHandler.UpdateWorkspace)
+		api.DELETE("/workspaces/:workspaceID", middlewares.JWTAuth(), workspaceHandler.DeleteWorkspace)
+		api.GET("/workspaces", middlewares.JWTAuth(), workspaceHandler.GetWorkspacesForUser)
 
 		// Workspace Member Routes
 		api.POST("/workspaces/:workspaceID/members", workspaceMemberHandler.AddMemberToWorkspace)
@@ -83,11 +84,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/workspaces/:workspaceID/members", workspaceMemberHandler.GetWorkspaceMembers)
 
 		// Channel Routes
-		api.POST("/channels", channelHandler.CreateChannel)
+		api.POST("/channels", middlewares.JWTAuth(), channelHandler.CreateChannel)
 		api.GET("/channels/:channelID", channelHandler.GetChannelByID)
-		api.PUT("/channels/:channelID", channelHandler.UpdateChannel)
-		api.DELETE("/channels/:channelID", channelHandler.DeleteChannel)
-		api.GET("/workspaces/:workspaceID/channels", channelHandler.GetChannelsForWorkspace)
+		api.PUT("/channels/:channelID", middlewares.JWTAuth(), channelHandler.UpdateChannel)
+		api.DELETE("/channels/:channelID", middlewares.JWTAuth(), channelHandler.DeleteChannel)
+		api.GET("/workspaces/:workspaceID/channels", middlewares.JWTAuth(), channelHandler.GetChannelsForWorkspace)
 
 		// Channel Member Routes
 		api.POST("/channels/:channelID/members", channelMemberHandler.AddMemberToChannel)
@@ -95,10 +96,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/channels/:channelID/members", channelMemberHandler.GetChannelMembers)
 
 		// Message Routes
-		api.POST("/messages", messageHandler.CreateMessage)
+		api.POST("/messages", middlewares.JWTAuth(), messageHandler.CreateMessage)
 		api.GET("/messages/:messageID", messageHandler.GetMessageByID)
-		api.PUT("/messages/:messageID", messageHandler.UpdateMessage)
-		api.DELETE("/messages/:messageID", messageHandler.DeleteMessage)
+		api.PUT("/messages/:messageID", middlewares.JWTAuth(), messageHandler.UpdateMessage)
+		api.DELETE("/messages/:messageID", middlewares.JWTAuth(), messageHandler.DeleteMessage)
 		api.GET("/channels/:channelID/messages", messageHandler.GetMessagesInChannel)
 
 		// Attachment Routes

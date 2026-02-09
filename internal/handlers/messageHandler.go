@@ -6,6 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
+	"axis/internal/utils" // Import the utils package
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,11 +21,17 @@ func NewMessageHandler(ms services.MessageService) *MessageHandler {
 }
 
 func (h *MessageHandler) CreateMessage(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	var message models.Message
 	if err := c.ShouldBindJSON(&message); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	message.SenderID = int(userID) // Set the SenderID from the context
 
 	createdMessage, err := h.messageService.CreateMessage(c.Request.Context(), &message)
 	if err != nil {
@@ -89,6 +96,11 @@ func (h *MessageHandler) GetMessagesInChannel(c *gin.Context) {
 }
 
 func (h *MessageHandler) UpdateMessage(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("messageID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -103,7 +115,8 @@ func (h *MessageHandler) UpdateMessage(c *gin.Context) {
 	}
 	message.ID = id // Ensure the ID from the URL is used
 
-	updatedMessage, err := h.messageService.UpdateMessage(c.Request.Context(), &message)
+	// Pass userID to the service for authorization
+	updatedMessage, err := h.messageService.UpdateMessage(c.Request.Context(), int(userID), &message)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update message"})
 		return
@@ -118,6 +131,11 @@ func (h *MessageHandler) UpdateMessage(c *gin.Context) {
 }
 
 func (h *MessageHandler) DeleteMessage(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("messageID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -125,7 +143,8 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 		return
 	}
 
-	err = h.messageService.DeleteMessage(c.Request.Context(), id)
+	// Pass userID to the service for authorization
+	err = h.messageService.DeleteMessage(c.Request.Context(), int(userID), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete message"})
 		return

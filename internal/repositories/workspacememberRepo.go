@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 
 	"axis/internal/models"
 	"github.com/rs/zerolog/log"
@@ -14,6 +15,8 @@ type WorkspaceMemberRepo interface {
 	GetWorkspaceMembers(ctx context.Context, workspaceID int) ([]models.WorkspaceMember, error)
 	GetWorkspacesForUser(ctx context.Context, userID int) ([]models.WorkspaceMember, error)
 	UpdateWorkspaceMemberRole(ctx context.Context, workspaceID, userID int, role models.UserRole) error
+	IsMemberOfWorkspace(ctx context.Context, workspaceID, userID int) (bool, error)
+	GetWorkspaceMember(ctx context.Context, workspaceID, userID int) (*models.WorkspaceMember, error)
 }
 
 type workspaceMemberRepository struct {
@@ -97,4 +100,34 @@ func (wmr *workspaceMemberRepository) UpdateWorkspaceMemberRole(ctx context.Cont
 		return err
 	}
 	return nil
+}
+
+func (wmr *workspaceMemberRepository) IsMemberOfWorkspace(ctx context.Context, workspaceID, userID int) (bool, error) {
+	count, err := wmr.db.NewSelect().
+		Model((*models.WorkspaceMember)(nil)).
+		Where("workspace_id = ?", workspaceID).
+		Where("user_id = ?", userID).
+		Count(ctx)
+	if err != nil {
+		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to check if user is member of workspace")
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (wmr *workspaceMemberRepository) GetWorkspaceMember(ctx context.Context, workspaceID, userID int) (*models.WorkspaceMember, error) {
+	member := new(models.WorkspaceMember)
+	err := wmr.db.NewSelect().
+		Model(member).
+		Where("workspace_id = ?", workspaceID).
+		Where("user_id = ?", userID).
+		Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Member not found
+		}
+		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to get workspace member")
+		return nil, err
+	}
+	return member, nil
 }

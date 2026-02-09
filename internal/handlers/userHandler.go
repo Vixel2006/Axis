@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"axis/internal/models"
 	"axis/internal/services"
+	"axis/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -48,18 +48,26 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
-}
-
-func (h *UserHandler) GetUserByID(c *gin.Context) {
-	idStr := c.Param("userID")
-	id, err := strconv.Atoi(idStr)
+	token, err := utils.GenerateAccessToken(user.ID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	user, err := h.userService.GetUserByID(c.Request.Context(), id)
+	c.JSON(http.StatusOK, gin.H{
+		"user":  user,
+		"token": token,
+	})
+}
+
+func (h *UserHandler) GetUserByID(c *gin.Context) {
+	// Get userID from context
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
+	user, err := h.userService.GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user"})
 		return
@@ -116,11 +124,9 @@ func (h *UserHandler) GetUserByUsername(c *gin.Context) {
 }
 
 func (h *UserHandler) UpdateUser(c *gin.Context) {
-	idStr := c.Param("userID")
-	id, err := strconv.Atoi(idStr)
+	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
+		return // GetUserIDFromContext already handles the error response
 	}
 
 	var updateUser models.UpdateUser
@@ -129,7 +135,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.UpdateUser(c.Request.Context(), id, updateUser)
+	user, err := h.userService.UpdateUser(c.Request.Context(), userID, updateUser)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
@@ -144,14 +150,12 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *UserHandler) DeleteUser(c *gin.Context) {
-	idStr := c.Param("userID")
-	id, err := strconv.Atoi(idStr)
+	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
+		return // GetUserIDFromContext already handles the error response
 	}
 
-	err = h.userService.DeleteUser(c.Request.Context(), id)
+	err = h.userService.DeleteUser(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
 		return

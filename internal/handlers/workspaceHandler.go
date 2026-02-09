@@ -6,6 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
+	"axis/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,11 +21,17 @@ func NewWorkspaceHandler(ws services.WorkspaceService) *WorkspaceHandler {
 }
 
 func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	var workspace models.Workspace
 	if err := c.ShouldBindJSON(&workspace); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	workspace.CreatorID = int(userID) // Set the CreatorID from the context
 
 	createdWorkspace, err := h.workspaceService.CreateWorkspace(c.Request.Context(), &workspace)
 	if err != nil {
@@ -58,6 +65,11 @@ func (h *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 }
 
 func (h *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("workspaceID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -72,8 +84,13 @@ func (h *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 	}
 	workspace.ID = id // Ensure the ID from the URL is used
 
-	updatedWorkspace, err := h.workspaceService.UpdateWorkspace(c.Request.Context(), &workspace)
+	// Pass userID to the service for authorization
+	updatedWorkspace, err := h.workspaceService.UpdateWorkspace(c.Request.Context(), int(userID), &workspace)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update workspace"})
 		return
 	}
@@ -87,6 +104,11 @@ func (h *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 }
 
 func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("workspaceID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -94,8 +116,13 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 		return
 	}
 
-	err = h.workspaceService.DeleteWorkspace(c.Request.Context(), id)
+	// Pass userID to the service for authorization
+	err = h.workspaceService.DeleteWorkspace(c.Request.Context(), int(userID), id)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete workspace"})
 		return
 	}
@@ -104,14 +131,12 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 }
 
 func (h *WorkspaceHandler) GetWorkspacesForUser(c *gin.Context) {
-	userIDStr := c.Param("userID")
-	userID, err := strconv.Atoi(userIDStr)
+	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
-		return
+		return // GetUserIDFromContext already handles the error response
 	}
 
-	workspaces, err := h.workspaceService.GetWorkspacesForUser(c.Request.Context(), userID)
+	workspaces, err := h.workspaceService.GetWorkspacesForUser(c.Request.Context(), int(userID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve workspaces for user"})
 		return
