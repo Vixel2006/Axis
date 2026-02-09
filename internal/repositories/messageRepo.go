@@ -12,7 +12,7 @@ import (
 type MessageRepo interface {
 	CreateMessage(ctx context.Context, message *models.Message) error
 	GetMessageByID(ctx context.Context, messageID int) (*models.Message, error)
-	GetMessagesByChannelID(ctx context.Context, channelID int, limit, offset int) ([]models.Message, error)
+	GetMessagesByMeetingID(ctx context.Context, meetingID int, limit, offset int) ([]models.Message, error)
 	GetThreadedMessages(ctx context.Context, parentMessageID int) ([]models.Message, error)
 	UpdateMessage(ctx context.Context, message *models.Message) error
 	DeleteMessage(ctx context.Context, messageID int) error
@@ -31,7 +31,7 @@ func NewMessageRepo(db *bun.DB) MessageRepo {
 func (mr *messageRepository) CreateMessage(ctx context.Context, message *models.Message) error {
 	_, err := mr.db.NewInsert().Model(message).Exec(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("channel_id", message.ChannelID).Int("sender_id", message.SenderID).Msg("Failed to create message")
+		log.Error().Err(err).Int("meeting_id", message.MeetingID).Int("sender_id", message.SenderID).Msg("Failed to create message")
 		return err
 	}
 	return nil
@@ -51,17 +51,17 @@ func (mr *messageRepository) GetMessageByID(ctx context.Context, messageID int) 
 	return message, nil
 }
 
-func (mr *messageRepository) GetMessagesByChannelID(ctx context.Context, channelID int, limit, offset int) ([]models.Message, error) {
+func (mr *messageRepository) GetMessagesByMeetingID(ctx context.Context, meetingID int, limit, offset int) ([]models.Message, error) {
 	var messages []models.Message
 	err := mr.db.NewSelect().
 		Model(&messages).
-		Where("channel_id = ?", channelID).
+		Where("meeting_id = ?", meetingID).
 		Order("created_at DESC"). // Latest messages first
 		Limit(limit).
 		Offset(offset).
 		Scan(ctx)
 	if err != nil {
-		log.Error().Err(err).Int("channel_id", channelID).Msg("Failed to get messages by channel ID")
+		log.Error().Err(err).Int("meeting_id", meetingID).Msg("Failed to get messages by meeting ID")
 		return nil, err
 	}
 	return messages, nil

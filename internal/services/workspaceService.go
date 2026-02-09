@@ -12,6 +12,7 @@ import (
 type WorkspaceService interface {
 	CreateWorkspace(ctx context.Context, workspace *models.Workspace) (*models.Workspace, error)
 	GetWorkspaceByID(ctx context.Context, id int) (*models.Workspace, error)
+	GetWorkspaceByIDAuthorized(ctx context.Context, userID, workspaceID int) (*models.Workspace, error)
 	UpdateWorkspace(ctx context.Context, userID int, workspace *models.Workspace) (*models.Workspace, error)
 	DeleteWorkspace(ctx context.Context, userID int, id int) error
 	GetWorkspacesForUser(ctx context.Context, userID int) ([]*models.Workspace, error)
@@ -58,6 +59,28 @@ func (s *workspaceService) GetWorkspaceByID(ctx context.Context, id int) (*model
 			return nil, nil // Return nil, nil for not found case
 		}
 		log.Error().Err(err).Int("workspace_id", id).Msg("Failed to get workspace by ID")
+		return nil, err
+	}
+	return workspace, nil
+}
+
+func (s *workspaceService) GetWorkspaceByIDAuthorized(ctx context.Context, userID, workspaceID int) (*models.Workspace, error) {
+	isMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, workspaceID, userID)
+	if err != nil {
+		log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to check workspace membership")
+		return nil, err
+	}
+	if !isMember {
+		return nil, &ForbiddenError{Message: "User not authorized to access this workspace"}
+	}
+
+	workspace, err := s.workspaceRepo.GetWorkspaceByID(ctx, workspaceID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Int("workspace_id", workspaceID).Msg("Workspace not found")
+			return nil, nil
+		}
+		log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace by ID after authorization")
 		return nil, err
 	}
 	return workspace, nil

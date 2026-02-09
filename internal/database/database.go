@@ -52,7 +52,7 @@ func New() Service {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
 	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(connStr)))
 	db := bun.NewDB(sqldb, pgdialect.New())
-	db.RegisterModel(&models.WorkspaceMember{}, &models.ChannelMember{})
+	db.RegisterModel(&models.WorkspaceMember{}, &models.ChannelMember{}, &models.MeetingMember{})
 	s := &service{
 		db: db,
 	}
@@ -142,6 +142,8 @@ func (s *service) createTables() error {
 		(*models.Message)(nil),
 		(*models.Attachment)(nil),
 		(*models.Reaction)(nil),
+		(*models.Meeting)(nil),
+		(*models.MeetingMember)(nil),
 	}
 
 	for _, model := range modelsToCreate {

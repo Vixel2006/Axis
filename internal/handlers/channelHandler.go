@@ -43,6 +43,11 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 }
 
 func (h *ChannelHandler) GetChannelByID(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
 	idStr := c.Param("channelID")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -50,8 +55,12 @@ func (h *ChannelHandler) GetChannelByID(c *gin.Context) {
 		return
 	}
 
-	channel, err := h.channelService.GetChannelByID(c.Request.Context(), id)
+	channel, err := h.channelService.GetChannelByIDAuthorized(c.Request.Context(), int(userID), id)
 	if err != nil {
+		if _, ok := err.(*services.ForbiddenError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve channel"})
 		return
 	}

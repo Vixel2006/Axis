@@ -12,6 +12,7 @@ import (
 type ChannelService interface {
 	CreateChannel(ctx context.Context, channel *models.Channel) (*models.Channel, error)
 	GetChannelByID(ctx context.Context, id int) (*models.Channel, error)
+	GetChannelByIDAuthorized(ctx context.Context, userID, channelID int) (*models.Channel, error)
 	GetChannelsForWorkspace(ctx context.Context, userID int, workspaceID int) ([]models.Channel, error)
 	UpdateChannel(ctx context.Context, userID int, channel *models.Channel) (*models.Channel, error)
 	DeleteChannel(ctx context.Context, userID int, id int) error
@@ -63,6 +64,43 @@ func (s *channelService) GetChannelByID(ctx context.Context, id int) (*models.Ch
 		return nil, err
 	}
 	return channel, nil
+}
+
+func (s *channelService) GetChannelByIDAuthorized(ctx context.Context, userID, channelID int) (*models.Channel, error) {
+	channel, err := s.channelRepo.GetChannelByID(ctx, channelID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Int("channel_id", channelID).Msg("Channel not found")
+			return nil, nil
+		}
+		log.Error().Err(err).Int("channel_id", channelID).Msg("Failed to get channel by ID for authorization check")
+		return nil, err
+	}
+	if channel == nil {
+		return nil, nil // Channel not found
+	}
+
+	// First, check if the user is a member of the workspace this channel belongs to
+	isWorkspaceMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, channel.WorkspaceID, userID)
+	if err != nil {
+		log.Error().Err(err).Int("workspace_id", channel.WorkspaceID).Int("user_id", userID).Msg("Failed to check workspace membership for channel access")
+		return nil, err
+	}
+	if isWorkspaceMember {
+		return channel, nil // User is a member of the workspace, so they have access to this channel
+	}
+
+	// If not a workspace member, then check if they are a direct channel member (e.g., for private channels not tied to workspace general access)
+	isChannelMember, err := s.channelMemberRepo.IsMemberOfChannel(ctx, channelID, userID)
+	if err != nil {
+		log.Error().Err(err).Int("channel_id", channelID).Int("user_id", userID).Msg("Failed to check direct channel membership")
+		return nil, err
+	}
+	if isChannelMember {
+		return channel, nil
+	}
+
+	return nil, &ForbiddenError{Message: "User not authorized to access this channel"}
 }
 
 func (s *channelService) GetChannelsForWorkspace(ctx context.Context, userID int, workspaceID int) ([]models.Channel, error) {

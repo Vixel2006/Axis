@@ -6,6 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
+	"axis/internal/utils" // Import the utils package
 	"github.com/gin-gonic/gin"
 )
 
@@ -84,4 +85,35 @@ func (h *WorkspaceMemberHandler) GetWorkspaceMembers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, members)
+}
+
+func (h *WorkspaceMemberHandler) JoinWorkspace(c *gin.Context) {
+	userID, err := utils.GetUserIDFromContext(c)
+	if err != nil {
+		return // GetUserIDFromContext already handles the error response
+	}
+
+	workspaceIDStr := c.Param("workspaceID")
+	workspaceID, err := strconv.Atoi(workspaceIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid workspace ID"})
+		return
+	}
+
+	workspaceMember, err := h.workspaceMemberService.JoinWorkspace(c.Request.Context(), workspaceID, int(userID))
+	if err != nil {
+		// Handle specific errors from service layer
+		if _, ok := err.(*services.NotFoundError); ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if _, ok := err.(*services.ConflictError); ok {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to join workspace"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, workspaceMember)
 }
