@@ -934,3 +934,395 @@ Common error status codes:
       }
     ]
     ```
+---
+
+### WebSocket Chat API
+
+This section describes the real-time WebSocket communication for chat functionality. The API provides a simplified interface for easier usage while maintaining all real-time features.
+
+#### Authentication for WebSockets
+
+*   **Method:** Include an `Authorization` header in WebSocket handshake request.
+*   **Header Name:** `Authorization`
+*   **Header Value:** `Bearer <YOUR_JWT_TOKEN>` (replace `<YOUR_JWT_TOKEN>` with a valid JWT obtained from the `/api/login` endpoint).
+
+#### `GET /ws/meeting/:meeting_id/chat`
+
+*   **Description:** Establishes a WebSocket connection for real-time chat within a specific meeting. Supports sending messages, reactions, typing indicators, and fetching message history.
+*   **Path Parameters:**
+    *   `meeting_id`: The ID of the meeting for which to join the chat.
+*   **Connection URL Example:** `ws://localhost:8080/ws/meeting/123/chat`
+
+---
+
+#### WebSocket Message Format
+
+All WebSocket messages use a simple, consistent format:
+
+```json
+{
+  "type": "message_type",
+  "data": { /* type-specific data */ }
+}
+```
+
+#### Available Message Types
+
+**Client to Server (Incoming):**
+- `message` - Send a chat message
+- `reaction` - Add/remove reaction to a message
+- `typing` - Send typing indicator
+- `history` - Request message history
+
+**Server to Client (Outgoing):**
+- `message` - New chat message broadcast
+- `reaction` - Reaction update broadcast
+- `typing` - Typing indicator broadcast
+- `room` - User join/leave notifications
+- `history` - Message history response
+- `error` - Error message
+
+---
+
+### Incoming WebSocket Messages (Client to Server)
+
+#### 1. Send Message (`type: "message"`)
+
+Sends a new chat message to the meeting.
+
+**Request:**
+```json
+{
+  "type": "message",
+  "data": {
+    "content": "Hello team!",
+    "room_id": 123,
+    "type": "text",                    // "text", "file", "system"
+    "reply_to": 456,                   // Optional: ID of message to reply to
+    "files": [                         // Optional: File attachments
+      {
+        "id": 1,
+        "name": "document.pdf",
+        "type": "application/pdf",
+        "size": 1024000,
+        "url": "https://example.com/files/document.pdf"
+      }
+    ]
+  }
+}
+```
+
+#### 2. Add/Remove Reaction (`type: "reaction"`)
+
+Adds or removes a reaction from a message.
+
+**Request:**
+```json
+{
+  "type": "reaction",
+  "data": {
+    "message_id": 789,
+    "emoji": "👍",
+    "action": "add"                    // "add" or "remove"
+  }
+}
+```
+
+#### 3. Typing Indicator (`type: "typing"`)
+
+Sends a typing indicator to other users.
+
+**Request:**
+```json
+{
+  "type": "typing",
+  "data": {
+    "room_id": 123,
+    "is_typing": true
+  }
+}
+```
+
+#### 4. Request Message History (`type: "history"`)
+
+Requests previous messages in the meeting.
+
+**Request:**
+```json
+{
+  "type": "history",
+  "data": {
+    "room_id": 123,
+    "offset": 0                        // Pagination offset
+  }
+}
+```
+
+---
+
+### Outgoing WebSocket Messages (Server to Client)
+
+#### 1. New Message Broadcast (`type: "message"`)
+
+Broadcasted when a new message is sent to the meeting.
+
+**Response:**
+```json
+{
+  "type": "message",
+  "data": {
+    "id": 101,
+    "content": "Hello team!",
+    "room_id": 123,
+    "user_id": 1,
+    "timestamp": "2024-01-07T10:00:00Z",
+    "type": "text",
+    "reply_to": null,
+    "files": [],
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "username": "johndoe"
+    }
+  }
+}
+```
+
+#### 2. Reaction Update (`type: "reaction"`)
+
+Broadcasted when a reaction is added or removed.
+
+**Response:**
+```json
+{
+  "type": "reaction",
+  "data": {
+    "message_id": 789,
+    "user_id": 1,
+    "emoji": "👍",
+    "action": "add",
+    "timestamp": "2024-01-07T10:01:00Z",
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "username": "johndoe"
+    }
+  }
+}
+```
+
+#### 3. Typing Indicator (`type: "typing"`)
+
+Broadcasted when a user starts or stops typing.
+
+**Response:**
+```json
+{
+  "type": "typing",
+  "data": {
+    "user_id": 1,
+    "room_id": 123,
+    "is_typing": true,
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "username": "johndoe"
+    }
+  }
+}
+```
+
+#### 4. Room Events (`type: "room"`)
+
+Broadcasted when a user joins or leaves the meeting chat.
+
+**Response:**
+```json
+{
+  "type": "room",
+  "data": {
+    "room_id": 123,
+    "user_id": 1,
+    "action": "join",                  // "join" or "leave"
+    "timestamp": "2024-01-07T10:02:00Z",
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "username": "johndoe"
+    }
+  }
+}
+```
+
+#### 5. Message History Response (`type: "history"`)
+
+Response to a history request.
+
+**Response:**
+```json
+{
+  "type": "history",
+  "data": {
+    "room_id": 123,
+    "messages": [
+      {
+        "id": 100,
+        "content": "Previous message",
+        "room_id": 123,
+        "user_id": 2,
+        "timestamp": "2024-01-07T09:30:00Z",
+        "type": "text",
+        "reply_to": null,
+        "files": [],
+        "user": {
+          "id": 2,
+          "name": "Jane Smith",
+          "username": "janesmith"
+        }
+      }
+    ],
+    "has_more": true,
+    "offset": 50
+  }
+}
+```
+
+#### 6. Error Messages (`type: "error"`)
+
+Sent when there's an error with a client request.
+
+**Response:**
+```json
+{
+  "type": "error",
+  "data": {
+    "code": "ROOM_MISMATCH",
+    "message": "Room ID mismatch",
+    "details": "Expected: 123, Got: 456"
+  }
+}
+```
+
+---
+
+### Error Codes
+
+| Code | Description |
+|------|-------------|
+| `INVALID_FORMAT` | Message format is invalid or malformed |
+| `INVALID_MESSAGE_DATA` | Message data is invalid or missing required fields |
+| `INVALID_REACTION_DATA` | Reaction data is invalid |
+| `INVALID_TYPING_DATA` | Typing data is invalid |
+| `INVALID_HISTORY_DATA` | History request data is invalid |
+| `ROOM_MISMATCH` | Room ID in message doesn't match connection room |
+| `UNKNOWN_TYPE` | Unknown message type |
+| `SEND_FAILED` | Failed to send message |
+| `REACTION_FAILED` | Failed to process reaction |
+| `HISTORY_FAILED` | Failed to retrieve message history |
+| `INVALID_REACTION_ACTION` | Invalid reaction action (must be "add" or "remove") |
+
+---
+
+### Usage Examples
+
+#### JavaScript Client Example
+
+```javascript
+// Connect to WebSocket
+const token = 'your-jwt-token';
+const meetingId = 123;
+const ws = new WebSocket(`ws://localhost:8080/ws/meeting/${meetingId}/chat`, [], {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+// Handle incoming messages
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  
+  switch (message.type) {
+    case 'message':
+      console.log('New message:', message.data);
+      displayMessage(message.data);
+      break;
+    case 'reaction':
+      console.log('Reaction update:', message.data);
+      updateReaction(message.data);
+      break;
+    case 'typing':
+      console.log('Typing indicator:', message.data);
+      showTypingIndicator(message.data);
+      break;
+    case 'room':
+      console.log('Room event:', message.data);
+      updateParticipantList(message.data);
+      break;
+    case 'error':
+      console.error('WebSocket error:', message.data);
+      showError(message.data);
+      break;
+  }
+};
+
+// Send a message
+function sendMessage(content, replyTo = null) {
+  ws.send(JSON.stringify({
+    type: 'message',
+    data: {
+      content: content,
+      room_id: meetingId,
+      type: 'text',
+      reply_to: replyTo
+    }
+  }));
+}
+
+// Add a reaction
+function addReaction(messageId, emoji) {
+  ws.send(JSON.stringify({
+    type: 'reaction',
+    data: {
+      message_id: messageId,
+      emoji: emoji,
+      action: 'add'
+    }
+  }));
+}
+
+// Send typing indicator
+function sendTyping(isTyping) {
+  ws.send(JSON.stringify({
+    type: 'typing',
+    data: {
+      room_id: meetingId,
+      is_typing: isTyping
+    }
+  }));
+}
+
+// Request message history
+function requestHistory(offset = 0) {
+  ws.send(JSON.stringify({
+    type: 'history',
+    data: {
+      room_id: meetingId,
+      offset: offset
+    }
+  }));
+}
+```
+
+---
+
+### WebSocket Features
+
+- **Real-time messaging**: Instant delivery of chat messages
+- **Reactions**: Add/remove emoji reactions to messages
+- **Typing indicators**: See when other users are typing
+- **Message history**: Paginated access to previous messages
+- **User presence**: Join/leave notifications
+- **Error handling**: Structured error messages with codes
+- **File attachments**: Support for file sharing in messages
+- **Message replies**: Threaded conversations with reply functionality
+- **Robust error handling**: Automatic reconnection support recommended

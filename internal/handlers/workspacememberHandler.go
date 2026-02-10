@@ -6,7 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
-	"axis/internal/utils" // Import the utils package
+	"axis/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -116,7 +116,7 @@ func (h *WorkspaceMemberHandler) JoinWorkspace(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in JoinWorkspace")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	workspaceIDStr := c.Param("workspaceID")
@@ -131,7 +131,6 @@ func (h *WorkspaceMemberHandler) JoinWorkspace(c *gin.Context) {
 
 	workspaceMember, err := h.workspaceMemberService.JoinWorkspace(c.Request.Context(), workspaceID, int(userID))
 	if err != nil {
-		// Handle specific errors from service layer
 		if _, ok := err.(*services.NotFoundError); ok {
 			h.log.Warn().Err(err).Int("user_id", int(userID)).Int("workspace_id", workspaceID).Msg("Workspace not found for joining")
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})

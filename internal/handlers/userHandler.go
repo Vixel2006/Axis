@@ -76,11 +76,10 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 func (h *UserHandler) GetUserByID(c *gin.Context) {
 	h.log.Info().Msg("Handling GetUserByID request")
-	// Get userID from context
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in GetUserByID")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 	h.log.Debug().Int("user_id_from_context", userID).Msg("Retrieving user by ID")
 
@@ -175,7 +174,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in UpdateUser")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 	h.log.Debug().Int("user_id_from_context", userID).Msg("Updating user")
 
@@ -214,7 +213,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in DeleteUser")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 	h.log.Debug().Int("user_id_from_context", userID).Msg("Deleting user")
 

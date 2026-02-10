@@ -11,6 +11,10 @@ func (e *NotFoundError) Error() string {
 	return fmt.Sprintf("not found: %s", e.Message)
 }
 
+func NewNotFoundError(message string) *NotFoundError {
+	return &NotFoundError{Message: message}
+}
+
 // ConflictError is returned when a request cannot be completed due to a conflict with the current state of the resource.
 type ConflictError struct {
 	Message string
@@ -28,3 +32,17 @@ type ForbiddenError struct {
 func (e *ForbiddenError) Error() string {
 	return fmt.Sprintf("forbidden: %s", e.Message)
 }
+
+// UnauthorizedError is returned when authentication fails or is required.
+type UnauthorizedError struct {
+	Message string
+}
+
+func (e *UnauthorizedError) Error() string {
+	return fmt.Sprintf("unauthorized: %s", e.Message)
+}
+
+func NewUnauthorizedError(message string) *UnauthorizedError {
+	return &UnauthorizedError{Message: message}
+}
+

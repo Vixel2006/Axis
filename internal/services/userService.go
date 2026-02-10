@@ -6,8 +6,8 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 
-	"axis/internal/repositories"
 	"axis/internal/models"
+	"axis/internal/repositories"
 )
 
 type UserService interface {
@@ -31,7 +31,6 @@ func NewUserService(userRepo repositories.UserRepo, logger zerolog.Logger) UserS
 		log:      logger,
 	}
 }
-
 
 func (s *userService) Register(ctx context.Context, form models.RegisterModel) (*models.User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(form.Password), bcrypt.DefaultCost)

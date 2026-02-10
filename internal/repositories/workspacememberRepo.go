@@ -64,7 +64,7 @@ func (wmr *workspaceMemberRepository) GetWorkspaceMembers(ctx context.Context, w
 	err := wmr.db.NewSelect().
 		Model(&members).
 		Where("workspace_id = ?", workspaceID).
-		Relation("User"). // Eager load user details
+		Relation("User").
 		Scan(ctx)
 	if err != nil {
 		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace members")
@@ -79,7 +79,7 @@ func (wmr *workspaceMemberRepository) GetWorkspacesForUser(ctx context.Context, 
 	err := wmr.db.NewSelect().
 		Model(&memberships).
 		Where("user_id = ?", userID).
-		Relation("Workspace"). // Eager load workspace details
+		Relation("Workspace").
 		Scan(ctx)
 	if err != nil {
 		wmr.log.Error().Err(err).Int("user_id", userID).Msg("Failed to get workspaces for user")
@@ -126,7 +126,7 @@ func (wmr *workspaceMemberRepository) GetWorkspaceMember(ctx context.Context, wo
 		Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // Member not found
+			return nil, nil
 		}
 		wmr.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to get workspace member")
 		return nil, err

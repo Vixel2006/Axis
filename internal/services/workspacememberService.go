@@ -17,7 +17,7 @@ type WorkspaceMemberService interface {
 
 type workspaceMemberService struct {
 	workspaceMemberRepo repositories.WorkspaceMemberRepo
-	workspaceRepo       repositories.WorkspaceRepo // Added to check if workspace exists
+	workspaceRepo       repositories.WorkspaceRepo
 	log                 zerolog.Logger
 }
 
@@ -64,7 +64,6 @@ func (s *workspaceMemberService) GetWorkspaceMembers(ctx context.Context, worksp
 }
 
 func (s *workspaceMemberService) JoinWorkspace(ctx context.Context, workspaceID, userID int) (*models.WorkspaceMember, error) {
-	// 1. Check if the workspace exists
 	workspace, err := s.workspaceRepo.GetWorkspaceByID(ctx, workspaceID)
 	if err != nil {
 		s.log.Error().Err(err).Int("workspace_id", workspaceID).Msg("Failed to get workspace by ID")
@@ -75,7 +74,6 @@ func (s *workspaceMemberService) JoinWorkspace(ctx context.Context, workspaceID,
 		return nil, &NotFoundError{Message: "Workspace not found"}
 	}
 
-	// 2. Check if the user is already a member
 	isMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, workspaceID, userID)
 	if err != nil {
 		s.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to check if user is already a member")
@@ -86,7 +84,6 @@ func (s *workspaceMemberService) JoinWorkspace(ctx context.Context, workspaceID,
 		return nil, &ConflictError{Message: "User is already a member of this workspace"}
 	}
 
-	// 3. Add the user as a member with the default 'Member' role
 	err = s.workspaceMemberRepo.AddMemberToWorkspace(ctx, workspaceID, userID, models.Member)
 	if err != nil {
 		s.log.Error().Err(err).Int("workspace_id", workspaceID).Int("user_id", userID).Msg("Failed to add user to workspace")

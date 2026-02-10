@@ -6,7 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
-	"axis/internal/utils" // Import the utils package
+	"axis/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -28,7 +28,7 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in CreateChannel")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	var channel models.Channel
@@ -37,7 +37,7 @@ func (h *ChannelHandler) CreateChannel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	channel.CreatorID = int(userID) // Set the CreatorID from the context
+	channel.CreatorID = int(userID)
 
 	createdChannel, err := h.channelService.CreateChannel(c.Request.Context(), &channel)
 	if err != nil {
@@ -55,7 +55,7 @@ func (h *ChannelHandler) GetChannelByID(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in GetChannelByID")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("channelID")
@@ -94,7 +94,7 @@ func (h *ChannelHandler) GetChannelsForWorkspace(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in GetChannelsForWorkspace")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	workspaceIDStr := c.Param("workspaceID")
@@ -127,7 +127,7 @@ func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in UpdateChannel")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("channelID")
@@ -145,9 +145,8 @@ func (h *ChannelHandler) UpdateChannel(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	channel.ID = id // Ensure the ID from the URL is used
+	channel.ID = id
 
-	// Pass userID to the service for authorization
 	updatedChannel, err := h.channelService.UpdateChannel(c.Request.Context(), int(userID), &channel)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {
@@ -175,7 +174,7 @@ func (h *ChannelHandler) DeleteChannel(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in DeleteChannel")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("channelID")
@@ -187,7 +186,6 @@ func (h *ChannelHandler) DeleteChannel(c *gin.Context) {
 		return
 	}
 
-	// Pass userID to the service for authorization
 	err = h.channelService.DeleteChannel(c.Request.Context(), int(userID), id)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {

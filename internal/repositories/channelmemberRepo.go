@@ -61,7 +61,7 @@ func (cmr *channelMemberRepository) GetChannelMembers(ctx context.Context, chann
 	err := cmr.db.NewSelect().
 		Model(&members).
 		Where("channel_id = ?", channelID).
-		Relation("User"). // Eager load user details
+		Relation("User").
 		Scan(ctx)
 	if err != nil {
 		cmr.log.Error().Err(err).Int("channel_id", channelID).Msg("Failed to get channel members")
@@ -76,7 +76,7 @@ func (cmr *channelMemberRepository) GetChannelsForUser(ctx context.Context, user
 	err := cmr.db.NewSelect().
 		Model(&memberships).
 		Where("user_id = ?", userID).
-		Relation("Channel"). // Eager load channel details
+		Relation("Channel").
 		Scan(ctx)
 	if err != nil {
 		cmr.log.Error().Err(err).Int("user_id", userID).Msg("Failed to get channels for user")

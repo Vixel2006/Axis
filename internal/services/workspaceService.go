@@ -40,12 +40,9 @@ func (s *workspaceService) CreateWorkspace(ctx context.Context, workspace *model
 	}
 	s.log.Info().Str("workspace_name", workspace.Name).Int("workspace_id", workspace.ID).Msg("Workspace created successfully")
 
-	// Add the creator as a member of the new workspace
 	err = s.workspaceMemberRepo.AddMemberToWorkspace(ctx, workspace.ID, workspace.CreatorID, models.Admin)
 	if err != nil {
 		s.log.Error().Err(err).Int("workspace_id", workspace.ID).Int("user_id", workspace.CreatorID).Msg("Failed to add creator as member to workspace")
-		// Decide if this error should prevent workspace creation or just be logged
-		// For now, we'll return the error as it's a critical step
 		return nil, err
 	}
 	s.log.Info().Int("workspace_id", workspace.ID).Int("user_id", workspace.CreatorID).Msg("Creator added as admin to workspace")
@@ -58,7 +55,7 @@ func (s *workspaceService) GetWorkspaceByID(ctx context.Context, id int) (*model
 	if err != nil {
 		if err == sql.ErrNoRows {
 			s.log.Info().Int("workspace_id", id).Msg("Workspace not found")
-			return nil, nil // Return nil, nil for not found case
+			return nil, nil
 		}
 		s.log.Error().Err(err).Int("workspace_id", id).Msg("Failed to get workspace by ID")
 		return nil, err
@@ -100,10 +97,7 @@ func (s *workspaceService) UpdateWorkspace(ctx context.Context, userID int, work
 		return nil, err
 	}
 
-	// Authorization check: Only the creator or an admin of the workspace can update it
-	// First, check if the user is the creator
 	if existingWorkspace.CreatorID != int(userID) {
-		// If not the creator, check if the user is an admin member
 		isMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, existingWorkspace.ID, int(userID))
 		if err != nil {
 			s.log.Error().Err(err).Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("Failed to check workspace membership for update")
@@ -113,8 +107,6 @@ func (s *workspaceService) UpdateWorkspace(ctx context.Context, userID int, work
 			s.log.Warn().Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("User not authorized to update this workspace")
 			return nil, &ForbiddenError{Message: "User not authorized to update this workspace"}
 		}
-		// Further check for admin role if IsMemberOfWorkspace doesn't cover roles
-		// This would require a GetWorkspaceMemberRole method
 		member, err := s.workspaceMemberRepo.GetWorkspaceMember(ctx, existingWorkspace.ID, int(userID))
 		if err != nil && err != sql.ErrNoRows {
 			s.log.Error().Err(err).Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("Failed to get workspace member role for update")
@@ -126,8 +118,7 @@ func (s *workspaceService) UpdateWorkspace(ctx context.Context, userID int, work
 		}
 	}
 
-	// Update fields
-	existingWorkspace.Name = workspace.Name // Assuming Name is always provided for update
+	existingWorkspace.Name = workspace.Name 
 
 	err = s.workspaceRepo.UpdateWorkspace(ctx, existingWorkspace)
 	if err != nil {
@@ -149,10 +140,7 @@ func (s *workspaceService) DeleteWorkspace(ctx context.Context, userID int, id i
 		return err
 	}
 
-	// Authorization check: Only the creator or an admin of the workspace can delete it
-	// First, check if the user is the creator
 	if existingWorkspace.CreatorID != int(userID) {
-		// If not the creator, check if the user is an admin member
 		isMember, err := s.workspaceMemberRepo.IsMemberOfWorkspace(ctx, existingWorkspace.ID, int(userID))
 		if err != nil {
 			s.log.Error().Err(err).Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("Failed to check workspace membership for deletion")
@@ -162,7 +150,6 @@ func (s *workspaceService) DeleteWorkspace(ctx context.Context, userID int, id i
 			s.log.Warn().Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("User not authorized to delete this workspace")
 			return &ForbiddenError{Message: "User not authorized to delete this workspace"}
 		}
-		// Further check for admin role if IsMemberOfWorkspace doesn't cover roles
 		member, err := s.workspaceMemberRepo.GetWorkspaceMember(ctx, existingWorkspace.ID, int(userID))
 		if err != nil && err != sql.ErrNoRows {
 			s.log.Error().Err(err).Int("workspace_id", existingWorkspace.ID).Int("user_id", int(userID)).Msg("Failed to get workspace member role for deletion")
@@ -178,7 +165,7 @@ func (s *workspaceService) DeleteWorkspace(ctx context.Context, userID int, id i
 	if err != nil {
 		if err == sql.ErrNoRows {
 			s.log.Info().Int("workspace_id", id).Msg("Workspace not found for deletion")
-			return nil // Consider returning nil if not found is not an error for deletion
+			return nil
 		}
 		s.log.Error().Err(err).Int("workspace_id", id).Msg("Failed to delete workspace")
 		return err
