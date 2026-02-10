@@ -50,6 +50,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	meetingService := services.NewMeetingService(meetingRepo, channelRepo, userRepo, channelMemberRepo, s.log)
 	workspaceMemberService := services.NewWorkspaceMemberService(workspaceMemberRepo, workspaceRepo, s.log)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, workspaceMemberRepo, s.log)
+	meetingChatService := services.NewMeetingChatService(meetingRepo, messageRepo, userRepo, attachmentRepo, reactionRepo, s.log) // Initialize MeetingChatService
 
 	// --- Handlers ---
 	attachmentHandler := handlers.NewAttachmentHandler(attachmentService, s.log)
@@ -61,6 +62,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	meetingHandler := handlers.NewMeetingHandler(meetingService, s.log)
 	workspaceMemberHandler := handlers.NewWorkspaceMemberHandler(workspaceMemberService, s.log)
 	workspaceHandler := handlers.NewWorkspaceHandler(workspaceService, s.log)
+	chatHandler := handlers.NewChatHandler(meetingChatService, s.log) // Initialize ChatHandler
 
 	// --- API Routes ---
 	api := r.Group("/api")
@@ -124,6 +126,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.POST("/messages/:messageID/reactions", reactionHandler.AddReaction)
 		api.DELETE("/messages/:messageID/reactions/:userID/:emoji", reactionHandler.RemoveReaction)
 		api.GET("/messages/:messageID/reactions", reactionHandler.GetReactionsForMessage)
+	}
+
+	// --- WebSocket Routes ---
+	wsGroup := r.Group("/ws")
+	wsGroup.Use(middlewares.JWTAuth(s.log))
+	{
+		wsGroup.GET("/meeting/:meeting_id/chat", chatHandler.ServeMeetingChatWs)
 	}
 
 	return r

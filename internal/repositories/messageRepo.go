@@ -58,7 +58,7 @@ func (mr *messageRepository) GetMessagesByMeetingID(ctx context.Context, meeting
 	err := mr.db.NewSelect().
 		Model(&messages).
 		Where("meeting_id = ?", meetingID).
-		Order("created_at DESC"). // Latest messages first
+		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Scan(ctx)
@@ -74,7 +74,7 @@ func (mr *messageRepository) GetThreadedMessages(ctx context.Context, parentMess
 	err := mr.db.NewSelect().
 		Model(&messages).
 		Where("parent_message_id = ?", parentMessageID).
-		Order("created_at ASC"). // Order by creation for thread flow
+		Order("created_at ASC").
 		Scan(ctx)
 	if err != nil {
 		mr.log.Error().Err(err).Int("parent_message_id", parentMessageID).Msg("Failed to get threaded messages")

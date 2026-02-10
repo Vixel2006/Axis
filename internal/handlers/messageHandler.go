@@ -6,7 +6,7 @@ import (
 
 	"axis/internal/models"
 	"axis/internal/services"
-	"axis/internal/utils" // Import the utils package
+	"axis/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )
@@ -100,7 +100,7 @@ func (h *MessageHandler) GetMessagesInMeeting(c *gin.Context) {
 		return
 	}
 
-	limitStr := c.DefaultQuery("limit", "100") // Default limit 100
+	limitStr := c.DefaultQuery("limit", "100")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil {
 		h.log.Error().Err(err).Str("limit_param", limitStr).Msg("Invalid limit parameter format")
@@ -108,7 +108,7 @@ func (h *MessageHandler) GetMessagesInMeeting(c *gin.Context) {
 		return
 	}
 
-	offsetStr := c.DefaultQuery("offset", "0") // Default offset 0
+	offsetStr := c.DefaultQuery("offset", "0")
 	offset, err := strconv.Atoi(offsetStr)
 	if err != nil {
 		h.log.Error().Err(err).Str("offset_param", offsetStr).Msg("Invalid offset parameter format")
@@ -156,10 +156,9 @@ func (h *MessageHandler) UpdateMessage(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	message.ID = id // Ensure the ID from the URL is used
+	message.ID = id
 	h.log.Debug().Int("message_id", id).Int("user_id", int(userID)).Interface("request_body", message).Msg("UpdateMessage request body")
 
-	// Pass userID to the service for authorization
 	updatedMessage, err := h.messageService.UpdateMessage(c.Request.Context(), int(userID), &message)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {
@@ -192,7 +191,7 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in DeleteMessage")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("messageID")
@@ -205,7 +204,6 @@ func (h *MessageHandler) DeleteMessage(c *gin.Context) {
 	}
 	h.log.Debug().Int("message_id", id).Int("user_id", int(userID)).Msg("Attempting to delete message")
 
-	// Pass userID to the service for authorization
 	err = h.messageService.DeleteMessage(c.Request.Context(), int(userID), id)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {

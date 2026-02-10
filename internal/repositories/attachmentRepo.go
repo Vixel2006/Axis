@@ -43,7 +43,7 @@ func (ar *attachmentRepository) GetAttachmentByID(ctx context.Context, attachmen
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ar.log.Info().Int("attachment_id", attachmentID).Msg("Attachment not found")
-			return nil, nil // Return nil, nil if no attachment found
+			return nil, nil
 		}
 		ar.log.Error().Err(err).Int("attachment_id", attachmentID).Msg("Failed to get attachment by ID")
 		return nil, err

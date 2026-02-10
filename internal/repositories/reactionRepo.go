@@ -10,8 +10,8 @@ import (
 )
 
 type ReactionRepo interface {
-	AddReaction(ctx context.Context, reaction *models.Reaction) error
-	RemoveReaction(ctx context.Context, reactionID int) error
+	CreateReaction(ctx context.Context, reaction *models.Reaction) error
+	DeleteReaction(ctx context.Context, messageID, userID int, emoji string) error
 	GetReactionsByMessageID(ctx context.Context, messageID int) ([]models.Reaction, error)
 	GetReactionByMessageUserEmoji(ctx context.Context, messageID, userID int, emoji string) (*models.Reaction, error)
 }
@@ -28,20 +28,26 @@ func NewReactionRepo(db *bun.DB, logger zerolog.Logger) ReactionRepo {
 	}
 }
 
-func (rr *reactionRepository) AddReaction(ctx context.Context, reaction *models.Reaction) error {
+func (rr *reactionRepository) CreateReaction(ctx context.Context, reaction *models.Reaction) error {
 	_, err := rr.db.NewInsert().Model(reaction).Exec(ctx)
 	if err != nil {
 		rr.log.Error().Err(err).Int("message_id", reaction.MessageID).Int("user_id", reaction.UserID).
-			Str("emoji", reaction.Emoji).Msg("Failed to add reaction")
+			Str("emoji", reaction.Emoji).Msg("Failed to create reaction")
 		return err
 	}
 	return nil
 }
 
-func (rr *reactionRepository) RemoveReaction(ctx context.Context, reactionID int) error {
-	_, err := rr.db.NewDelete().Model(&models.Reaction{}).Where("id = ?", reactionID).Exec(ctx)
+func (rr *reactionRepository) DeleteReaction(ctx context.Context, messageID, userID int, emoji string) error {
+	_, err := rr.db.NewDelete().
+		Model(&models.Reaction{}).
+		Where("message_id = ?", messageID).
+		Where("user_id = ?", userID).
+		Where("emoji = ?", emoji).
+		Exec(ctx)
 	if err != nil {
-		rr.log.Error().Err(err).Int("reaction_id", reactionID).Msg("Failed to remove reaction")
+		rr.log.Error().Err(err).Int("message_id", messageID).Int("user_id", userID).
+			Str("emoji", emoji).Msg("Failed to delete reaction")
 		return err
 	}
 	return nil

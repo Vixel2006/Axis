@@ -49,4 +49,3 @@ func JWTAuth(logger zerolog.Logger) gin.HandlerFunc {
 		c.Next()
 	}
 }
-

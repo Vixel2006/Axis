@@ -40,7 +40,6 @@ func NewMeetingService(mr repositories.MeetingRepo, cr repositories.ChannelRepo,
 }
 
 func (s *meetingService) CreateMeeting(ctx context.Context, meeting *models.Meeting, creatorID int, participantIDs []int) (*models.Meeting, error) {
-	// Validate ChannelID
 	channel, err := s.channelRepo.GetChannelByID(ctx, meeting.ChannelID)
 	if err != nil {
 		s.log.Error().Err(err).Int("channel_id", meeting.ChannelID).Msg("Failed to retrieve channel for meeting creation")
@@ -59,16 +58,13 @@ func (s *meetingService) CreateMeeting(ctx context.Context, meeting *models.Meet
 	}
 	s.log.Info().Int("meeting_id", meeting.ID).Str("meeting_name", meeting.Name).Msg("Meeting created successfully")
 
-	// Add creator as participant
 	err = s.meetingRepo.AddParticipantToMeeting(ctx, meeting.ID, creatorID)
 	if err != nil {
 		s.log.Error().Err(err).Int("meeting_id", meeting.ID).Int("user_id", creatorID).Msg("Failed to add creator as participant to meeting")
 		return nil, err
 	}
 
-	// Add other participants
 	for _, pID := range participantIDs {
-		// Basic validation: check if user exists
 		user, err := s.userRepo.GetUserByID(ctx, pID)
 		if err != nil {
 			s.log.Error().Err(err).Int("user_id", pID).Msg("Participant user not found, skipping")
@@ -112,10 +108,9 @@ func (s *meetingService) GetMeetingByIDAuthorized(ctx context.Context, userID, m
 	}
 	if meeting == nil {
 		s.log.Info().Int("meeting_id", meetingID).Msg("Meeting not found during authorization check")
-		return nil, nil // Meeting not found
+		return nil, nil
 	}
 
-	// Check if user is a direct participant
 	isParticipant, err := s.meetingRepo.IsParticipantInMeeting(ctx, meetingID, userID)
 	if err != nil {
 		s.log.Error().Err(err).Int("meeting_id", meetingID).Int("user_id", userID).Msg("Failed to check if user is participant in meeting")
@@ -126,7 +121,6 @@ func (s *meetingService) GetMeetingByIDAuthorized(ctx context.Context, userID, m
 		return meeting, nil
 	}
 
-	// If not a direct participant, check if user is a member of the meeting's channel
 	isChannelMember, err := s.channelMemberRepo.IsMemberOfChannel(ctx, meeting.ChannelID, userID)
 	if err != nil {
 		s.log.Error().Err(err).Int("channel_id", meeting.ChannelID).Int("user_id", userID).Msg("Failed to check if user is member of meeting's channel")
@@ -166,7 +160,6 @@ func (s *meetingService) UpdateMeeting(ctx context.Context, meeting *models.Meet
 		return nil, &ForbiddenError{Message: "User not authorized to update this meeting"}
 	}
 
-	// Update fields
 	existingMeeting.Name = meeting.Name
 	existingMeeting.Description = meeting.Description
 	existingMeeting.StartTime = meeting.StartTime

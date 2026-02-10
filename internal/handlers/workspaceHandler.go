@@ -28,7 +28,7 @@ func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in CreateWorkspace")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	var workspace models.Workspace
@@ -37,7 +37,7 @@ func (h *WorkspaceHandler) CreateWorkspace(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	workspace.CreatorID = int(userID) // Set the CreatorID from the context
+	workspace.CreatorID = int(userID)
 	h.log.Debug().Int("creator_id", workspace.CreatorID).Str("workspace_name", workspace.Name).Msg("CreateWorkspace request body")
 
 	createdWorkspace, err := h.workspaceService.CreateWorkspace(c.Request.Context(), &workspace)
@@ -56,7 +56,7 @@ func (h *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in GetWorkspaceByID")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("workspaceID")
@@ -96,7 +96,7 @@ func (h *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in UpdateWorkspace")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("workspaceID")
@@ -114,10 +114,9 @@ func (h *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	workspace.ID = id // Ensure the ID from the URL is used
+	workspace.ID = id
 	h.log.Debug().Int("workspace_id", id).Int("user_id", int(userID)).Interface("request_body", workspace).Msg("UpdateWorkspace request body")
 
-	// Pass userID to the service for authorization
 	updatedWorkspace, err := h.workspaceService.UpdateWorkspace(c.Request.Context(), int(userID), &workspace)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {
@@ -150,7 +149,7 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in DeleteWorkspace")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 
 	idStr := c.Param("workspaceID")
@@ -163,7 +162,6 @@ func (h *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 	}
 	h.log.Debug().Int("workspace_id", id).Int("user_id", int(userID)).Msg("Attempting to delete workspace")
 
-	// Pass userID to the service for authorization
 	err = h.workspaceService.DeleteWorkspace(c.Request.Context(), int(userID), id)
 	if err != nil {
 		if _, ok := err.(*services.ForbiddenError); ok {
@@ -190,7 +188,7 @@ func (h *WorkspaceHandler) GetWorkspacesForUser(c *gin.Context) {
 	userID, err := utils.GetUserIDFromContext(c)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get user ID from context in GetWorkspacesForUser")
-		return // GetUserIDFromContext already handles the error response
+		return
 	}
 	h.log.Debug().Int("user_id_from_context", userID).Msg("Retrieving workspaces for user")
 

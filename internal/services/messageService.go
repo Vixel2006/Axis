@@ -10,9 +10,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-
-
-
 type MessageService interface {
 	CreateMessage(ctx context.Context, message *models.Message) (*models.Message, error)
 	GetMessageByID(ctx context.Context, id int) (*models.Message, error)

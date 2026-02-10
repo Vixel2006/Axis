@@ -35,10 +35,10 @@ func (s *reactionService) AddReaction(ctx context.Context, reaction *models.Reac
 	}
 	if existingReaction != nil {
 		s.log.Info().Int("message_id", reaction.MessageID).Int("user_id", reaction.UserID).Str("emoji", reaction.Emoji).Msg("Reaction already exists")
-		return existingReaction, nil // Or return an error indicating duplicate
+		return existingReaction, nil
 	}
 
-	err = s.reactionRepo.AddReaction(ctx, reaction)
+	err = s.reactionRepo.CreateReaction(ctx, reaction)
 	if err != nil {
 		s.log.Error().Err(err).Int("message_id", reaction.MessageID).Int("user_id", reaction.UserID).Str("emoji", reaction.Emoji).Msg("Failed to add reaction")
 		return nil, err
@@ -52,13 +52,13 @@ func (s *reactionService) RemoveReaction(ctx context.Context, messageID, userID 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			s.log.Info().Int("message_id", messageID).Int("user_id", userID).Str("emoji", emoji).Msg("Reaction not found for removal")
-			return nil // If not found, nothing to remove, so consider it successful
+			return nil
 		}
 		s.log.Error().Err(err).Int("message_id", messageID).Int("user_id", userID).Str("emoji", emoji).Msg("Failed to get reaction for removal")
 		return err
 	}
 
-	err = s.reactionRepo.RemoveReaction(ctx, reaction.ID)
+	err = s.reactionRepo.DeleteReaction(ctx, messageID, userID, emoji)
 	if err != nil {
 		s.log.Error().Err(err).Int("reaction_id", reaction.ID).Msg("Failed to remove reaction")
 		return err

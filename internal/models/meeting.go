@@ -9,20 +9,20 @@ import (
 type Meeting struct {
 	bun.BaseModel `bun:"table:meetings,alias:m"`
 
-	ID          int         `bun:",pk,autoincrement" json:"id"`
-	Name        string      `bun:",notnull" json:"name"`
-	Description *string     `bun:"" json:"description"`
-	ChannelID   int         `bun:",notnull" json:"channel_id"` // The channel where the meeting is held
-	CreatorID   int         `bun:",notnull" json:"creator_id"`
-	StartTime   time.Time   `bun:",notnull" json:"start_time"`
-	EndTime     time.Time   `bun:",notnull" json:"end_time"`
-	CreatedAt   time.Time   `bun:",nullzero,default:current_timestamp" json:"created_at"`
-	UpdatedAt   time.Time   `bun:",nullzero,default:current_timestamp" json:"updated_at"`
+	ID          int       `bun:",pk,autoincrement" json:"id"`
+	Name        string    `bun:",notnull" json:"name"`
+	Description *string   `bun:"" json:"description"`
+	ChannelID   int       `bun:",notnull" json:"channel_id"`
+	CreatorID   int       `bun:",notnull" json:"creator_id"`
+	StartTime   time.Time `bun:",notnull" json:"start_time"`
+	EndTime     time.Time `bun:",notnull" json:"end_time"`
+	CreatedAt   time.Time `bun:",nullzero,default:current_timestamp" json:"created_at"`
+	UpdatedAt   time.Time `bun:",nullzero,default:current_timestamp" json:"updated_at"`
 
-	Creator     *User      `bun:"rel:belongs-to,join:creator_id=id" json:"-"`
-	Channel     *Channel   `bun:"rel:belongs-to,join:channel_id=id" json:"-"`
-	Participants []*User    `bun:"m2m:meeting_members,join:Meeting=User" json:"-"` // Many-to-many through MeetingMember
-	Messages    []*Message `bun:"rel:has-many,join:id=meeting_id" json:"-"` // Messages belonging to this meeting
+	Creator      *User      `bun:"rel:belongs-to,join:creator_id=id" json:"-"`
+	Channel      *Channel   `bun:"rel:belongs-to,join:channel_id=id" json:"-"`
+	Participants []*User    `bun:"m2m:meeting_members,join:Meeting=User" json:"-"`
+	Messages     []*Message `bun:"rel:has-many,join:id=meeting_id" json:"-"`
 }
 
 type MeetingMember struct {

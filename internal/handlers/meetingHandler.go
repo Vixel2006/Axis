@@ -25,11 +25,11 @@ func NewMeetingHandler(ms services.MeetingService, logger zerolog.Logger) *Meeti
 }
 
 type CreateMeetingRequest struct {
-	Name          string    `json:"name" binding:"required"`
-	Description   *string   `json:"description"`
-	ChannelID     int       `json:"channel_id" binding:"required"`
-	StartTime     time.Time `json:"start_time" binding:"required"`
-	EndTime       time.Time `json:"end_time" binding:"required"`
+	Name           string    `json:"name" binding:"required"`
+	Description    *string   `json:"description"`
+	ChannelID      int       `json:"channel_id" binding:"required"`
+	StartTime      time.Time `json:"start_time" binding:"required"`
+	EndTime        time.Time `json:"end_time" binding:"required"`
 	ParticipantIDs []int     `json:"participant_ids"`
 }
 
